@@ -75,12 +75,11 @@ function newId(): string {
 }
 
 function defaultTasks(): Task[] {
-  return [{ id: newId(), text: '', completed: false }]
+  return [{ id: newId(), text: '', completed: false, ignored: false }]
 }
 
-type DayRecordState = 'pending' | 'done'
+type DayRecordState = 'pending' | 'done' | 'ignored'
 type AgendaKind = 'work' | 'personal'
-type PendingMonthItem = { id: string; dateKey: string; text: string }
 const STORAGE_SEP = '|'
 
 function toStorageDateKey(agenda: AgendaKind, dayKey: string): string {
@@ -95,26 +94,36 @@ function fromStorageDateKey(storageKey: string): { agenda: AgendaKind | null; da
   return { agenda, dayKey: storageKey.slice(sepAt + 1) }
 }
 
+function countActivePendingInTasks(dayTasks: Task[]): number {
+  let n = 0
+  for (const task of dayTasks) {
+    if (!task.ignored && !task.completed && task.text.trim().length > 0) n++
+  }
+  return n
+}
+
 function getDayRecordState(tasks: Task[] | undefined): DayRecordState | null {
   if (!tasks || tasks.length === 0) return null
 
-  let hasPending = false
-  let hasDone = false
+  let hasActivePending = false
+  let hasCompleted = false
+  let hasIgnoredWithText = false
+  let hasAnyLine = false
 
   for (const task of tasks) {
-    const hasContent = task.completed || task.text.trim().length > 0
-    if (!hasContent) continue
-    if (task.completed) hasDone = true
-    else hasPending = true
+    const t = task.text.trim()
+    if (!t && !task.completed && !task.ignored) continue
+    hasAnyLine = true
+    if (task.ignored && t) hasIgnoredWithText = true
+    if (!task.ignored && task.completed) hasCompleted = true
+    if (!task.ignored && !task.completed && t) hasActivePending = true
   }
 
-  if (!hasPending && !hasDone) return null
-  return hasPending ? 'pending' : 'done'
-}
-
-function monthLabelFromDateKey(key: string, locale: string): string {
-  const d = parseDateKey(key)
-  return new Intl.DateTimeFormat(locale, { month: 'long' }).format(d)
+  if (!hasAnyLine) return null
+  if (hasActivePending) return 'pending'
+  if (hasCompleted) return 'done'
+  if (hasIgnoredWithText) return 'ignored'
+  return 'done'
 }
 
 const initialDateKey = dateKeyFromDate(new Date())
@@ -195,7 +204,11 @@ function CalendarPickerBody({
                 <span
                   className={[
                     'agenda__picker-day-dot',
-                    dayState === 'pending' ? 'agenda__picker-day-dot--pending' : 'agenda__picker-day-dot--done',
+                    dayState === 'pending'
+                      ? 'agenda__picker-day-dot--pending'
+                      : dayState === 'ignored'
+                        ? 'agenda__picker-day-dot--ignored'
+                        : 'agenda__picker-day-dot--done',
                     isSelected && 'agenda__picker-day-dot--selected',
                   ]
                     .filter(Boolean)
@@ -230,7 +243,6 @@ function AgendaView() {
 
   const activeStorageKey = useMemo(() => toStorageDateKey(agendaKind, dateKey), [agendaKind, dateKey])
   const todayKey = dateKeyFromDate(new Date())
-  const todayStorageKey = useMemo(() => toStorageDateKey(agendaKind, todayKey), [agendaKind, todayKey])
 
   useEffect(() => {
     if (!user || !sb) return
@@ -361,29 +373,29 @@ function AgendaView() {
     return states
   }, [drafts, agendaKind])
 
-  const monthPendingItems = useMemo(() => {
+  const workMonthPendingCount = useMemo(() => {
     const monthPrefix = dateKey.slice(0, 7)
-    const items: PendingMonthItem[] = []
+    let n = 0
     for (const [storageKey, dayTasks] of Object.entries(drafts)) {
       const parsed = fromStorageDateKey(storageKey)
-      if (parsed.agenda !== agendaKind) continue
+      if (parsed.agenda !== 'work') continue
       const dayKey = parsed.dayKey
       if (!dayKey.startsWith(monthPrefix) || dayKey === todayKey) continue
-      for (const task of dayTasks) {
-        const text = task.text.trim()
-        if (!task.completed && text.length > 0) {
-          items.push({ id: task.id, dateKey: dayKey, text })
-        }
-      }
+      n += countActivePendingInTasks(dayTasks)
     }
-    items.sort((a, b) => a.dateKey.localeCompare(b.dateKey))
-    return items
-  }, [drafts, agendaKind, dateKey, todayKey])
+    return n
+  }, [drafts, dateKey, todayKey])
 
-  const monthName = useMemo(() => monthLabelFromDateKey(dateKey, t.dateLocale), [dateKey, t.dateLocale])
-  const monthPendingCountLabel = t.monthlyPendingCount
-    .replace('{{count}}', String(monthPendingItems.length))
-    .replace('{{month}}', monthName)
+  const personalBacklogPendingCount = useMemo(() => {
+    let n = 0
+    for (const [storageKey, dayTasks] of Object.entries(drafts)) {
+      const parsed = fromStorageDateKey(storageKey)
+      if (parsed.agenda !== 'personal') continue
+      if (parsed.dayKey >= todayKey) continue
+      n += countActivePendingInTasks(dayTasks)
+    }
+    return n
+  }, [drafts, todayKey])
 
   const pickDay = (key: string) => {
     goToDate(key)
@@ -413,99 +425,7 @@ function AgendaView() {
 
   const addField = () => {
     if (isPastDay) return
-    setTasksForDay((list) => [...list, { id: newId(), text: '', completed: false }])
-  }
-
-  const moveTaskToToday = async (fromDateKey: string, taskId: string) => {
-    if (!sb || !user) return
-    if (fromDateKey === todayKey) return
-    const fromStorageKey = toStorageDateKey(agendaKind, fromDateKey)
-
-    const source = drafts[fromStorageKey]
-    if (!source) return
-    const moving = source.find((task) => task.id === taskId)
-    if (!moving) return
-
-    const nextSource = source.filter((task) => task.id !== taskId)
-    const todayTasks = drafts[todayStorageKey] ?? defaultTasks()
-    const cleanedToday = todayTasks.filter((task) => task.text.trim().length > 0 || task.completed)
-    const nextToday = [...cleanedToday, { ...moving, id: newId(), completed: false }]
-
-    setDrafts((prev) => ({
-      ...prev,
-      [fromStorageKey]: nextSource.length ? nextSource : defaultTasks(),
-      [todayStorageKey]: nextToday,
-    }))
-
-    const sourceErr = await saveDayTasksToCloud(
-      sb,
-      user.id,
-      fromStorageKey,
-      nextSource.length ? nextSource : defaultTasks(),
-    )
-    const todayErr = await saveDayTasksToCloud(sb, user.id, todayStorageKey, nextToday)
-    if (sourceErr || todayErr) {
-      setSaveHint(sourceErr ?? todayErr ?? null)
-      window.setTimeout(() => setSaveHint(null), 5000)
-      return
-    }
-
-    setSaveHint(t.movedToToday)
-    window.setTimeout(() => setSaveHint(null), 2500)
-  }
-
-  const moveAllPendingToToday = async () => {
-    if (!sb || !user) return
-    if (monthPendingItems.length === 0) return
-    if (!window.confirm(t.confirmMoveAllToToday)) return
-
-    const idsByDay: Record<string, Set<string>> = {}
-    for (const item of monthPendingItems) {
-      if (!idsByDay[item.dateKey]) idsByDay[item.dateKey] = new Set<string>()
-      idsByDay[item.dateKey].add(item.id)
-    }
-
-    const updatedByDay: Record<string, Task[]> = {}
-    const movedTasks: Task[] = []
-    for (const [fromDateKey, idSet] of Object.entries(idsByDay)) {
-      const fromStorageKey = toStorageDateKey(agendaKind, fromDateKey)
-      const source = drafts[fromStorageKey] ?? []
-      const keep: Task[] = []
-      for (const task of source) {
-        if (idSet.has(task.id)) movedTasks.push(task)
-        else keep.push(task)
-      }
-      updatedByDay[fromStorageKey] = keep.length ? keep : defaultTasks()
-    }
-
-    if (movedTasks.length === 0) return
-
-    const todayTasks = drafts[todayStorageKey] ?? defaultTasks()
-    const cleanedToday = todayTasks.filter((task) => task.text.trim().length > 0 || task.completed)
-    const movedToToday = movedTasks.map((task) => ({ ...task, id: newId(), completed: false }))
-    const nextToday = [...cleanedToday, ...movedToToday]
-
-    setDrafts((prev) => ({
-      ...prev,
-      ...updatedByDay,
-      [todayStorageKey]: nextToday,
-    }))
-
-    const saveErrors = await Promise.all([
-      ...Object.entries(updatedByDay).map(([fromDateKey, nextSource]) =>
-        saveDayTasksToCloud(sb, user.id, fromDateKey, nextSource),
-      ),
-      saveDayTasksToCloud(sb, user.id, todayStorageKey, nextToday),
-    ])
-    const firstErr = saveErrors.find((err) => Boolean(err))
-    if (firstErr) {
-      setSaveHint(firstErr)
-      window.setTimeout(() => setSaveHint(null), 5000)
-      return
-    }
-
-    setSaveHint(t.movedAllToToday)
-    window.setTimeout(() => setSaveHint(null), 2500)
+    setTasksForDay((list) => [...list, { id: newId(), text: '', completed: false, ignored: false }])
   }
 
   return (
@@ -562,24 +482,59 @@ function AgendaView() {
               <div className="agenda__calendar-row">
                 <LanguageSwitcher className="agenda__lang" />
                 <div className="agenda__scope" role="tablist" aria-label={t.agendaSwitcher}>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={agendaKind === 'work'}
-                    className={`agenda__scope-btn${agendaKind === 'work' ? ' agenda__scope-btn--active' : ''}`}
-                    onClick={() => setAgendaKind('work')}
-                  >
-                    {t.agendaWork}
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={agendaKind === 'personal'}
-                    className={`agenda__scope-btn${agendaKind === 'personal' ? ' agenda__scope-btn--active' : ''}`}
-                    onClick={() => setAgendaKind('personal')}
-                  >
-                    {t.agendaPersonal}
-                  </button>
+                  <div className={`agenda__scope-col${agendaKind === 'work' ? ' agenda__scope-col--active' : ''}`}>
+                    <div
+                      className="agenda__scope-badges"
+                      aria-label={t.ariaBadgeWorkMonth.replace('{{count}}', String(workMonthPendingCount))}
+                    >
+                      {workMonthPendingCount > 0 && (
+                        <span className="agenda__scope-dot" title={t.badgePendingTooltip} aria-hidden="true" />
+                      )}
+                      <span
+                        className={`agenda__scope-count${workMonthPendingCount === 0 ? ' agenda__scope-count--zero' : ''}`}
+                      >
+                        {workMonthPendingCount}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={agendaKind === 'work'}
+                      className={`agenda__scope-btn${agendaKind === 'work' ? ' agenda__scope-btn--active' : ''}`}
+                      onClick={() => setAgendaKind('work')}
+                    >
+                      {t.agendaWork}
+                    </button>
+                  </div>
+                  <div className={`agenda__scope-col${agendaKind === 'personal' ? ' agenda__scope-col--active' : ''}`}>
+                    <div
+                      className="agenda__scope-badges"
+                      aria-label={t.ariaBadgePersonalBacklog.replace(
+                        '{{count}}',
+                        String(personalBacklogPendingCount),
+                      )}
+                    >
+                      {personalBacklogPendingCount > 0 && (
+                        <span className="agenda__scope-dot" title={t.badgePendingTooltip} aria-hidden="true" />
+                      )}
+                      <span
+                        className={`agenda__scope-count${
+                          personalBacklogPendingCount === 0 ? ' agenda__scope-count--zero' : ''
+                        }`}
+                      >
+                        {personalBacklogPendingCount}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={agendaKind === 'personal'}
+                      className={`agenda__scope-btn${agendaKind === 'personal' ? ' agenda__scope-btn--active' : ''}`}
+                      onClick={() => setAgendaKind('personal')}
+                    >
+                      {t.agendaPersonal}
+                    </button>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -648,10 +603,14 @@ function AgendaView() {
                   {isPastDay && <p className="agenda__readonly-note">{t.readOnlyPastDay}</p>}
                   <ul className="agenda__tasks">
                     {tasks.map((task) => (
-                      <li key={task.id} className="agenda__task">
+                      <li key={task.id} className={`agenda__task${task.ignored ? ' agenda__task--ignored' : ''}`}>
                         <span
-                          className={`agenda__dot ${task.completed ? 'agenda__dot--done' : 'agenda__dot--pending'}`}
-                          title={task.completed ? t.taskDone : t.taskTodo}
+                          className={`agenda__dot ${
+                            task.ignored ? 'agenda__dot--ignored' : task.completed ? 'agenda__dot--done' : 'agenda__dot--pending'
+                          }`}
+                          title={
+                            task.ignored ? t.taskIgnored : task.completed ? t.taskDone : t.taskTodo
+                          }
                           aria-hidden
                         />
                         <input
@@ -663,11 +622,23 @@ function AgendaView() {
                           placeholder={t.taskPlaceholder}
                           aria-label={t.ariaTaskText}
                         />
+                        {!isPastDay && (task.ignored || task.text.trim().length > 0) && (
+                          <button
+                            type="button"
+                            className="agenda__task-ignore"
+                            aria-label={task.ignored ? t.ariaRestoreTask : t.ariaIgnoreTask}
+                            onClick={() =>
+                              updateTask(task.id, task.ignored ? { ignored: false } : { ignored: true, completed: false })
+                            }
+                          >
+                            ×
+                          </button>
+                        )}
                         <button
                           type="button"
                           role="switch"
                           aria-checked={task.completed}
-                          disabled={isPastDay}
+                          disabled={isPastDay || Boolean(task.ignored)}
                           aria-label={task.completed ? t.ariaMarkTodo : t.ariaMarkDone}
                           className={`agenda__switch ${task.completed ? 'agenda__switch--done' : ''}`}
                           onClick={() => updateTask(task.id, { completed: !task.completed })}
@@ -686,42 +657,6 @@ function AgendaView() {
                 </>
               )}
             </main>
-
-            <section className="agenda__month-pending" aria-label={t.monthlyPendingTitle}>
-              <div className="agenda__month-pending-head">
-                <h3 className="agenda__month-pending-title">{t.monthlyPendingTitle}</h3>
-                {monthPendingItems.length > 0 && (
-                  <button type="button" className="agenda__month-pending-move-all" onClick={() => void moveAllPendingToToday()}>
-                    {t.moveAllToToday}
-                  </button>
-                )}
-              </div>
-              <p className="agenda__month-pending-count">{monthPendingCountLabel}</p>
-              {monthPendingItems.length === 0 ? (
-                <p className="agenda__month-pending-empty">{t.monthlyPendingEmpty}</p>
-              ) : (
-                <ul className="agenda__month-pending-list">
-                  {monthPendingItems.map((item) => (
-                    <li key={`${item.dateKey}-${item.id}`} className="agenda__month-pending-item">
-                      <span className="agenda__month-pending-date">
-                        {new Intl.DateTimeFormat(t.dateLocale, {
-                          day: '2-digit',
-                          month: '2-digit',
-                        }).format(parseDateKey(item.dateKey))}
-                      </span>
-                      <span className="agenda__month-pending-text">{item.text}</span>
-                      <button
-                        type="button"
-                        className="agenda__month-pending-move"
-                        onClick={() => void moveTaskToToday(item.dateKey, item.id)}
-                      >
-                        {t.moveToToday}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
 
             <footer className={`agenda__footer${isPastDay ? ' agenda__footer--readonly' : ''}`}>
               {saveHint && <span className="agenda__saved">{saveHint}</span>}

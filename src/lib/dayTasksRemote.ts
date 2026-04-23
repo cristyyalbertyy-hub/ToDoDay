@@ -1,6 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Task } from '../types/task'
 
+function splitStorageDateKey(dateKey: string): { agenda: 'work' | 'personal' | null; dayKey: string } {
+  const i = dateKey.indexOf('|')
+  if (i <= 0) return { agenda: null, dayKey: dateKey }
+  const a = dateKey.slice(0, i)
+  const d = dateKey.slice(i + 1)
+  if (a === 'work' || a === 'personal') return { agenda: a, dayKey: d }
+  return { agenda: null, dayKey: dateKey }
+}
+
 function parseTasksJson(raw: unknown): Task[] | null {
   if (!Array.isArray(raw)) return null
   const tasks: Task[] = []
@@ -16,10 +25,35 @@ function parseTasksJson(raw: unknown): Task[] | null {
         id: String((item as Task).id),
         text: String((item as Task).text),
         completed: Boolean((item as Task).completed),
+        ignored: Boolean((item as Task).ignored),
       })
     }
   }
   return tasks.length ? tasks : null
+}
+
+async function migrateLegacyDayToWork(
+  sb: SupabaseClient,
+  userId: string,
+  legacyKey: string,
+  workKey: string,
+  tasks: Task[],
+): Promise<void> {
+  const { error: upErr } = await sb.from('day_tasks').upsert(
+    {
+      user_id: userId,
+      date_key: workKey,
+      tasks,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,date_key' },
+  )
+  if (upErr) {
+    console.error(upErr)
+    return
+  }
+  const { error: delErr } = await sb.from('day_tasks').delete().eq('user_id', userId).eq('date_key', legacyKey)
+  if (delErr) console.error(delErr)
 }
 
 export async function loadDayTasksFromCloud(
@@ -38,8 +72,31 @@ export async function loadDayTasksFromCloud(
     console.error(error)
     return null
   }
-  if (!data || data.tasks == null) return null
-  return parseTasksJson(data.tasks)
+  if (data?.tasks != null) {
+    const parsed = parseTasksJson(data.tasks)
+    if (parsed) return parsed
+  }
+
+  const { agenda, dayKey } = splitStorageDateKey(dateKey)
+  if (agenda !== 'work') return null
+
+  const { data: leg, error: legErr } = await sb
+    .from('day_tasks')
+    .select('tasks')
+    .eq('user_id', userId)
+    .eq('date_key', dayKey)
+    .maybeSingle()
+
+  if (legErr) {
+    console.error(legErr)
+    return null
+  }
+  if (!leg?.tasks) return null
+  const legacyTasks = parseTasksJson(leg.tasks)
+  if (!legacyTasks) return null
+
+  await migrateLegacyDayToWork(sb, userId, dayKey, dateKey, legacyTasks)
+  return legacyTasks
 }
 
 export async function saveDayTasksToCloud(
@@ -57,7 +114,15 @@ export async function saveDayTasksToCloud(
     },
     { onConflict: 'user_id,date_key' },
   )
-  return error ? error.message : null
+  if (error) return error.message
+
+  const { agenda, dayKey } = splitStorageDateKey(dateKey)
+  if (agenda === 'work') {
+    const { error: delErr } = await sb.from('day_tasks').delete().eq('user_id', userId).eq('date_key', dayKey)
+    if (delErr) console.error(delErr)
+  }
+
+  return null
 }
 
 export async function loadMonthTasksFromCloud(
@@ -83,5 +148,30 @@ export async function loadMonthTasksFromCloud(
     const parsed = parseTasksJson(row.tasks)
     if (parsed) out[row.date_key] = parsed
   }
+
+  const { agenda, dayKey: startDay } = splitStorageDateKey(monthStartKey)
+  const { dayKey: endDay } = splitStorageDateKey(monthEndKey)
+  if (agenda !== 'work' || !startDay || !endDay) return out
+
+  const { data: legacyRows, error: legErr } = await sb
+    .from('day_tasks')
+    .select('date_key,tasks')
+    .eq('user_id', userId)
+    .gte('date_key', startDay)
+    .lte('date_key', endDay)
+    .not('date_key', 'like', '%|%')
+
+  if (legErr) {
+    console.error(legErr)
+    return out
+  }
+
+  for (const row of legacyRows ?? []) {
+    const workKey = `work|${row.date_key}`
+    if (out[workKey]) continue
+    const parsed = parseTasksJson(row.tasks)
+    if (parsed) out[workKey] = parsed
+  }
+
   return out
 }

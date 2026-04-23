@@ -24,20 +24,18 @@ export type Messages = {
   loadingSession: string
   taskDone: string
   taskTodo: string
+  taskIgnored: string
+  ariaIgnoreTask: string
+  ariaRestoreTask: string
   taskPlaceholder: string
   ariaTaskText: string
   ariaMarkTodo: string
   ariaMarkDone: string
   ariaAddField: string
   readOnlyPastDay: string
-  monthlyPendingTitle: string
-  monthlyPendingCount: string
-  monthlyPendingEmpty: string
-  moveToToday: string
-  movedToToday: string
-  moveAllToToday: string
-  movedAllToToday: string
-  confirmMoveAllToToday: string
+  ariaBadgeWorkMonth: string
+  ariaBadgePersonalBacklog: string
+  badgePendingTooltip: string
   save: string
   saved: string
   setupTitle: string
@@ -86,20 +84,18 @@ export const translations: Record<Lang, Messages> = {
     loadingSession: 'A iniciar sessão…',
     taskDone: 'Concluída',
     taskTodo: 'Por fazer',
+    taskIgnored: 'Ignorada',
+    ariaIgnoreTask: 'Ignorar tarefa (fica anulada, o texto mantém-se)',
+    ariaRestoreTask: 'Restaurar tarefa',
     taskPlaceholder: 'Tarefa…',
     ariaTaskText: 'Texto da tarefa',
     ariaMarkTodo: 'Marcar como por fazer',
     ariaMarkDone: 'Marcar como concluída',
     ariaAddField: 'Adicionar campo',
     readOnlyPastDay: 'Este dia já passou — só podes consultar as tarefas; não é possível alterar nem guardar.',
-    monthlyPendingTitle: 'Pendentes do mês',
-    monthlyPendingCount: '{{count}} pendentes em {{month}}',
-    monthlyPendingEmpty: 'Sem tarefas pendentes neste mês.',
-    moveToToday: 'Mover para hoje',
-    movedToToday: 'Tarefa movida para hoje.',
-    moveAllToToday: 'Mover todas para hoje',
-    movedAllToToday: 'Todas as tarefas pendentes foram movidas para hoje.',
-    confirmMoveAllToToday: 'Queres mesmo mover todas as tarefas pendentes para hoje?',
+    ariaBadgeWorkMonth: 'Trabalho — por fazer neste mês (exceto hoje): {{count}}',
+    ariaBadgePersonalBacklog: 'Pessoal — por fazer em dias anteriores a hoje: {{count}}',
+    badgePendingTooltip: 'Tarefas por fazer (ignorar com × deixa de contar aqui)',
     save: 'Guardar',
     saved: 'Guardado.',
     setupTitle: 'Configurar Supabase',
@@ -148,20 +144,18 @@ export const translations: Record<Lang, Messages> = {
     loadingSession: 'Signing in…',
     taskDone: 'Done',
     taskTodo: 'To do',
+    taskIgnored: 'Ignored',
+    ariaIgnoreTask: 'Ignore task (stays written, no longer pending)',
+    ariaRestoreTask: 'Restore task',
     taskPlaceholder: 'Task…',
     ariaTaskText: 'Task text',
     ariaMarkTodo: 'Mark as to do',
     ariaMarkDone: 'Mark as done',
     ariaAddField: 'Add field',
     readOnlyPastDay: 'This day is in the past — you can only view tasks; editing and save are disabled.',
-    monthlyPendingTitle: 'Monthly pending',
-    monthlyPendingCount: '{{count}} pending in {{month}}',
-    monthlyPendingEmpty: 'No pending tasks this month.',
-    moveToToday: 'Move to today',
-    movedToToday: 'Task moved to today.',
-    moveAllToToday: 'Move all to today',
-    movedAllToToday: 'All pending tasks were moved to today.',
-    confirmMoveAllToToday: 'Do you really want to move all pending tasks to today?',
+    ariaBadgeWorkMonth: 'Work — pending this month (excluding today): {{count}}',
+    ariaBadgePersonalBacklog: 'Personal — pending on past days: {{count}}',
+    badgePendingTooltip: 'Pending tasks (ignore with × to remove from this count)',
     save: 'Save',
     saved: 'Saved.',
     setupTitle: 'Set up Supabase',
@@ -210,6 +204,9 @@ export const translations: Record<Lang, Messages> = {
     loadingSession: 'Connexion…',
     taskDone: 'Terminée',
     taskTodo: 'À faire',
+    taskIgnored: 'Ignorée',
+    ariaIgnoreTask: 'Ignorer la tâche (reste écrite, plus en attente)',
+    ariaRestoreTask: 'Rétablir la tâche',
     taskPlaceholder: 'Tâche…',
     ariaTaskText: 'Texte de la tâche',
     ariaMarkTodo: 'Marquer comme à faire',
@@ -217,14 +214,9 @@ export const translations: Record<Lang, Messages> = {
     ariaAddField: 'Ajouter un champ',
     readOnlyPastDay:
       'Ce jour est passé — vous pouvez seulement consulter les tâches ; modification et enregistrement désactivés.',
-    monthlyPendingTitle: 'En attente du mois',
-    monthlyPendingCount: '{{count}} en attente en {{month}}',
-    monthlyPendingEmpty: 'Aucune tâche en attente ce mois-ci.',
-    moveToToday: "Déplacer à aujourd'hui",
-    movedToToday: "Tâche déplacée à aujourd'hui.",
-    moveAllToToday: "Tout déplacer à aujourd'hui",
-    movedAllToToday: "Toutes les tâches en attente ont été déplacées à aujourd'hui.",
-    confirmMoveAllToToday: "Voulez-vous vraiment déplacer toutes les tâches en attente à aujourd'hui ?",
+    ariaBadgeWorkMonth: "Travail — à faire ce mois (sans aujourd'hui) : {{count}}",
+    ariaBadgePersonalBacklog: 'Personnel — à faire sur les jours passés : {{count}}',
+    badgePendingTooltip: 'Tâches à faire (ignorer avec × les retire de ce total)',
     save: 'Enregistrer',
     saved: 'Enregistré.',
     setupTitle: 'Configurer Supabase',
