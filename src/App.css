@@ -25,6 +25,24 @@
   backdrop-filter: blur(10px);
 }
 
+.agenda--work {
+  --ag-accent: #d4af37;
+  --ag-accent-bright: #e8c76a;
+  --ag-accent-deep: #9a7b24;
+  --ag-accent-soft: rgba(212, 175, 55, 0.14);
+  --ag-border: rgba(201, 169, 98, 0.28);
+  --ag-card-border: rgba(212, 175, 55, 0.38);
+}
+
+.agenda--personal {
+  --ag-accent: #b68cff;
+  --ag-accent-bright: #d4bdff;
+  --ag-accent-deep: #7c57bd;
+  --ag-accent-soft: rgba(182, 140, 255, 0.17);
+  --ag-border: rgba(166, 140, 214, 0.34);
+  --ag-card-border: rgba(182, 140, 255, 0.4);
+}
+
 .agenda--calendar-open {
   min-height: 100svh;
   max-width: none;
@@ -161,6 +179,30 @@
 
 .agenda__lang {
   flex-shrink: 0;
+}
+
+.agenda__scope {
+  display: inline-flex;
+  border: 1px solid var(--ag-border);
+  border-radius: 999px;
+  background: var(--ag-surface);
+  overflow: hidden;
+}
+
+.agenda__scope-btn {
+  border: none;
+  background: transparent;
+  color: var(--ag-muted);
+  padding: 0.34rem 0.62rem;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.agenda__scope-btn--active {
+  background: var(--ag-accent-soft);
+  color: var(--ag-accent);
 }
 
 .agenda__hoje-btn {

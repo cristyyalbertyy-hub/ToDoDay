@@ -14,6 +14,9 @@ export type Messages = {
   screenToday: string
   today: string
   signOut: string
+  agendaWork: string
+  agendaPersonal: string
+  agendaSwitcher: string
   ariaYesterday: string
   ariaTomorrow: string
   ariaOpenCalendar: string
@@ -73,6 +76,9 @@ export const translations: Record<Lang, Messages> = {
     screenToday: 'Hoje',
     today: 'Hoje',
     signOut: 'Sair',
+    agendaWork: 'Trabalho',
+    agendaPersonal: 'Pessoal',
+    agendaSwitcher: 'Tipo de agenda',
     ariaYesterday: 'Dia anterior (ontem)',
     ariaTomorrow: 'Dia seguinte (amanhã)',
     ariaOpenCalendar: 'Abrir calendário para escolher o dia',
@@ -132,6 +138,9 @@ export const translations: Record<Lang, Messages> = {
     screenToday: 'Today',
     today: 'Today',
     signOut: 'Sign out',
+    agendaWork: 'Work',
+    agendaPersonal: 'Personal',
+    agendaSwitcher: 'Agenda type',
     ariaYesterday: 'Previous day (yesterday)',
     ariaTomorrow: 'Next day (tomorrow)',
     ariaOpenCalendar: 'Open calendar to pick a day',
@@ -191,6 +200,9 @@ export const translations: Record<Lang, Messages> = {
     screenToday: "Aujourd'hui",
     today: "Aujourd'hui",
     signOut: 'Déconnexion',
+    agendaWork: 'Travail',
+    agendaPersonal: 'Personnel',
+    agendaSwitcher: "Type d'agenda",
     ariaYesterday: 'Jour précédent (hier)',
     ariaTomorrow: 'Jour suivant (demain)',
     ariaOpenCalendar: 'Ouvrir le calendrier pour choisir un jour',

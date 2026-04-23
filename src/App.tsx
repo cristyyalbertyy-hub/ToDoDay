@@ -79,7 +79,21 @@ function defaultTasks(): Task[] {
 }
 
 type DayRecordState = 'pending' | 'done'
+type AgendaKind = 'work' | 'personal'
 type PendingMonthItem = { id: string; dateKey: string; text: string }
+const STORAGE_SEP = '|'
+
+function toStorageDateKey(agenda: AgendaKind, dayKey: string): string {
+  return `${agenda}${STORAGE_SEP}${dayKey}`
+}
+
+function fromStorageDateKey(storageKey: string): { agenda: AgendaKind | null; dayKey: string } {
+  const sepAt = storageKey.indexOf(STORAGE_SEP)
+  if (sepAt <= 0) return { agenda: null, dayKey: storageKey }
+  const agenda = storageKey.slice(0, sepAt)
+  if (agenda !== 'work' && agenda !== 'personal') return { agenda: null, dayKey: storageKey }
+  return { agenda, dayKey: storageKey.slice(sepAt + 1) }
+}
 
 function getDayRecordState(tasks: Task[] | undefined): DayRecordState | null {
   if (!tasks || tasks.length === 0) return null
@@ -203,6 +217,7 @@ function AgendaView() {
   const sb = getSupabase()
 
   const [dateKey, setDateKey] = useState(initialDateKey)
+  const [agendaKind, setAgendaKind] = useState<AgendaKind>('work')
   const [drafts, setDrafts] = useState<Record<string, Task[]>>({})
   const [saveHint, setSaveHint] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -213,34 +228,40 @@ function AgendaView() {
   const draftsRef = useRef(drafts)
   draftsRef.current = drafts
 
+  const activeStorageKey = useMemo(() => toStorageDateKey(agendaKind, dateKey), [agendaKind, dateKey])
+  const todayKey = dateKeyFromDate(new Date())
+  const todayStorageKey = useMemo(() => toStorageDateKey(agendaKind, todayKey), [agendaKind, todayKey])
+
   useEffect(() => {
     if (!user || !sb) return
-    if (draftsRef.current[dateKey] !== undefined) return
+    if (draftsRef.current[activeStorageKey] !== undefined) return
 
     let cancelled = false
     ;(async () => {
-      const remote = await loadDayTasksFromCloud(sb, user.id, dateKey)
+      const remote = await loadDayTasksFromCloud(sb, user.id, activeStorageKey)
       if (cancelled) return
       setDrafts((prev) =>
-        prev[dateKey] !== undefined ? prev : { ...prev, [dateKey]: remote ?? defaultTasks() },
+        prev[activeStorageKey] !== undefined ? prev : { ...prev, [activeStorageKey]: remote ?? defaultTasks() },
       )
     })()
 
     return () => {
       cancelled = true
     }
-  }, [dateKey, user?.id, sb])
+  }, [activeStorageKey, user?.id, sb])
 
   useEffect(() => {
     if (!user || !sb) return
-    const monthKey = dateKey.slice(0, 7)
+    const monthKey = `${agendaKind}:${dateKey.slice(0, 7)}`
     if (loadedMonthKeys[monthKey]) return
 
     const { start, end } = monthBoundariesFromDateKey(dateKey)
+    const monthStartStorage = toStorageDateKey(agendaKind, start)
+    const monthEndStorage = toStorageDateKey(agendaKind, end)
     let cancelled = false
 
     ;(async () => {
-      const monthDrafts = await loadMonthTasksFromCloud(sb, user.id, start, end)
+      const monthDrafts = await loadMonthTasksFromCloud(sb, user.id, monthStartStorage, monthEndStorage)
       if (cancelled) return
       setDrafts((prev) => ({ ...monthDrafts, ...prev }))
       setLoadedMonthKeys((prev) => ({ ...prev, [monthKey]: true }))
@@ -249,7 +270,7 @@ function AgendaView() {
     return () => {
       cancelled = true
     }
-  }, [dateKey, user?.id, sb, loadedMonthKeys])
+  }, [agendaKind, dateKey, user?.id, sb, loadedMonthKeys])
 
   useEffect(() => {
     if (!pickerOpen) return
@@ -276,27 +297,25 @@ function AgendaView() {
 
   useEffect(() => {
     if (dateKey < dateKeyFromDate(new Date())) setSaveHint(null)
-  }, [dateKey])
+  }, [dateKey, agendaKind])
 
   const goToDate = useCallback((key: string) => {
     setDateKey(key)
   }, [])
 
-  const tasks = drafts[dateKey]
+  const tasks = drafts[activeStorageKey]
 
   const setTasksForDay = useCallback(
     (updater: Task[] | ((prev: Task[]) => Task[])) => {
       setDrafts((prev) => {
-        const current = prev[dateKey]
+        const current = prev[activeStorageKey]
         if (!current) return prev
         const next = typeof updater === 'function' ? updater(current) : updater
-        return { ...prev, [dateKey]: next }
+        return { ...prev, [activeStorageKey]: next }
       })
     },
-    [dateKey],
+    [activeStorageKey],
   )
-
-  const todayKey = dateKeyFromDate(new Date())
   const isToday = dateKey === todayKey
   const isPastDay = dateKey < todayKey
 
@@ -333,17 +352,22 @@ function AgendaView() {
   )
   const dayRecordStates = useMemo(() => {
     const states: Record<string, DayRecordState> = {}
-    for (const [key, dayTasks] of Object.entries(drafts)) {
+    for (const [storageKey, dayTasks] of Object.entries(drafts)) {
+      const parsed = fromStorageDateKey(storageKey)
+      if (parsed.agenda !== agendaKind) continue
       const state = getDayRecordState(dayTasks)
-      if (state) states[key] = state
+      if (state) states[parsed.dayKey] = state
     }
     return states
-  }, [drafts])
+  }, [drafts, agendaKind])
 
   const monthPendingItems = useMemo(() => {
     const monthPrefix = dateKey.slice(0, 7)
     const items: PendingMonthItem[] = []
-    for (const [dayKey, dayTasks] of Object.entries(drafts)) {
+    for (const [storageKey, dayTasks] of Object.entries(drafts)) {
+      const parsed = fromStorageDateKey(storageKey)
+      if (parsed.agenda !== agendaKind) continue
+      const dayKey = parsed.dayKey
       if (!dayKey.startsWith(monthPrefix) || dayKey === todayKey) continue
       for (const task of dayTasks) {
         const text = task.text.trim()
@@ -354,7 +378,7 @@ function AgendaView() {
     }
     items.sort((a, b) => a.dateKey.localeCompare(b.dateKey))
     return items
-  }, [drafts, dateKey, todayKey])
+  }, [drafts, agendaKind, dateKey, todayKey])
 
   const monthName = useMemo(() => monthLabelFromDateKey(dateKey, t.dateLocale), [dateKey, t.dateLocale])
   const monthPendingCountLabel = t.monthlyPendingCount
@@ -368,9 +392,9 @@ function AgendaView() {
 
   const handleSave = async () => {
     if (isPastDay) return
-    const list = drafts[dateKey]
+    const list = drafts[activeStorageKey]
     if (!list || !sb || !user) return
-    const err = await saveDayTasksToCloud(sb, user.id, dateKey, list)
+    const err = await saveDayTasksToCloud(sb, user.id, activeStorageKey, list)
     if (err) {
       setSaveHint(err)
       window.setTimeout(() => setSaveHint(null), 5000)
@@ -395,25 +419,31 @@ function AgendaView() {
   const moveTaskToToday = async (fromDateKey: string, taskId: string) => {
     if (!sb || !user) return
     if (fromDateKey === todayKey) return
+    const fromStorageKey = toStorageDateKey(agendaKind, fromDateKey)
 
-    const source = drafts[fromDateKey]
+    const source = drafts[fromStorageKey]
     if (!source) return
     const moving = source.find((task) => task.id === taskId)
     if (!moving) return
 
     const nextSource = source.filter((task) => task.id !== taskId)
-    const todayTasks = drafts[todayKey] ?? defaultTasks()
+    const todayTasks = drafts[todayStorageKey] ?? defaultTasks()
     const cleanedToday = todayTasks.filter((task) => task.text.trim().length > 0 || task.completed)
     const nextToday = [...cleanedToday, { ...moving, id: newId(), completed: false }]
 
     setDrafts((prev) => ({
       ...prev,
-      [fromDateKey]: nextSource.length ? nextSource : defaultTasks(),
-      [todayKey]: nextToday,
+      [fromStorageKey]: nextSource.length ? nextSource : defaultTasks(),
+      [todayStorageKey]: nextToday,
     }))
 
-    const sourceErr = await saveDayTasksToCloud(sb, user.id, fromDateKey, nextSource.length ? nextSource : defaultTasks())
-    const todayErr = await saveDayTasksToCloud(sb, user.id, todayKey, nextToday)
+    const sourceErr = await saveDayTasksToCloud(
+      sb,
+      user.id,
+      fromStorageKey,
+      nextSource.length ? nextSource : defaultTasks(),
+    )
+    const todayErr = await saveDayTasksToCloud(sb, user.id, todayStorageKey, nextToday)
     if (sourceErr || todayErr) {
       setSaveHint(sourceErr ?? todayErr ?? null)
       window.setTimeout(() => setSaveHint(null), 5000)
@@ -438,18 +468,19 @@ function AgendaView() {
     const updatedByDay: Record<string, Task[]> = {}
     const movedTasks: Task[] = []
     for (const [fromDateKey, idSet] of Object.entries(idsByDay)) {
-      const source = drafts[fromDateKey] ?? []
+      const fromStorageKey = toStorageDateKey(agendaKind, fromDateKey)
+      const source = drafts[fromStorageKey] ?? []
       const keep: Task[] = []
       for (const task of source) {
         if (idSet.has(task.id)) movedTasks.push(task)
         else keep.push(task)
       }
-      updatedByDay[fromDateKey] = keep.length ? keep : defaultTasks()
+      updatedByDay[fromStorageKey] = keep.length ? keep : defaultTasks()
     }
 
     if (movedTasks.length === 0) return
 
-    const todayTasks = drafts[todayKey] ?? defaultTasks()
+    const todayTasks = drafts[todayStorageKey] ?? defaultTasks()
     const cleanedToday = todayTasks.filter((task) => task.text.trim().length > 0 || task.completed)
     const movedToToday = movedTasks.map((task) => ({ ...task, id: newId(), completed: false }))
     const nextToday = [...cleanedToday, ...movedToToday]
@@ -457,14 +488,14 @@ function AgendaView() {
     setDrafts((prev) => ({
       ...prev,
       ...updatedByDay,
-      [todayKey]: nextToday,
+      [todayStorageKey]: nextToday,
     }))
 
     const saveErrors = await Promise.all([
       ...Object.entries(updatedByDay).map(([fromDateKey, nextSource]) =>
         saveDayTasksToCloud(sb, user.id, fromDateKey, nextSource),
       ),
-      saveDayTasksToCloud(sb, user.id, todayKey, nextToday),
+      saveDayTasksToCloud(sb, user.id, todayStorageKey, nextToday),
     ])
     const firstErr = saveErrors.find((err) => Boolean(err))
     if (firstErr) {
@@ -479,7 +510,7 @@ function AgendaView() {
 
   return (
     <div className="sakura-app">
-      <div className={`agenda${pickerOpen ? ' agenda--calendar-open' : ''}`}>
+      <div className={`agenda agenda--${agendaKind}${pickerOpen ? ' agenda--calendar-open' : ''}`}>
         {pickerOpen ? (
           <div
             className="agenda__calendar-screen"
@@ -530,6 +561,26 @@ function AgendaView() {
             <header className="agenda__header">
               <div className="agenda__calendar-row">
                 <LanguageSwitcher className="agenda__lang" />
+                <div className="agenda__scope" role="tablist" aria-label={t.agendaSwitcher}>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={agendaKind === 'work'}
+                    className={`agenda__scope-btn${agendaKind === 'work' ? ' agenda__scope-btn--active' : ''}`}
+                    onClick={() => setAgendaKind('work')}
+                  >
+                    {t.agendaWork}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={agendaKind === 'personal'}
+                    className={`agenda__scope-btn${agendaKind === 'personal' ? ' agenda__scope-btn--active' : ''}`}
+                    onClick={() => setAgendaKind('personal')}
+                  >
+                    {t.agendaPersonal}
+                  </button>
+                </div>
                 <button
                   type="button"
                   className="agenda__calendar"
