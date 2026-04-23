@@ -32,7 +32,7 @@ export type Messages = {
   ariaMarkTodo: string
   ariaMarkDone: string
   ariaAddField: string
-  readOnlyPastDay: string
+  pastDayNote: string
   ariaBadgeWorkMonth: string
   ariaBadgePersonalBacklog: string
   badgePendingTooltip: string
@@ -92,7 +92,8 @@ export const translations: Record<Lang, Messages> = {
     ariaMarkTodo: 'Marcar como por fazer',
     ariaMarkDone: 'Marcar como concluída',
     ariaAddField: 'Adicionar campo',
-    readOnlyPastDay: 'Este dia já passou — só podes consultar as tarefas; não é possível alterar nem guardar.',
+    pastDayNote:
+      'Este dia já passou — podes marcar como concluídas ou ignorar (×); o texto não é editável e as alterações guardam-se na nuvem.',
     ariaBadgeWorkMonth: 'Trabalho — por fazer em todos os dias anteriores a hoje: {{count}}',
     ariaBadgePersonalBacklog: 'Pessoal — por fazer em todos os dias anteriores a hoje: {{count}}',
     badgePendingTooltip: 'Tarefas por fazer (ignorar com × deixa de contar aqui)',
@@ -152,7 +153,8 @@ export const translations: Record<Lang, Messages> = {
     ariaMarkTodo: 'Mark as to do',
     ariaMarkDone: 'Mark as done',
     ariaAddField: 'Add field',
-    readOnlyPastDay: 'This day is in the past — you can only view tasks; editing and save are disabled.',
+    pastDayNote:
+      'This day is in the past — you can mark tasks done or ignore them (×); text is not editable and changes sync to the cloud.',
     ariaBadgeWorkMonth: 'Work — pending on all days before today: {{count}}',
     ariaBadgePersonalBacklog: 'Personal — pending on all days before today: {{count}}',
     badgePendingTooltip: 'Pending tasks (ignore with × to remove from this count)',
@@ -212,8 +214,8 @@ export const translations: Record<Lang, Messages> = {
     ariaMarkTodo: 'Marquer comme à faire',
     ariaMarkDone: 'Marquer comme terminée',
     ariaAddField: 'Ajouter un champ',
-    readOnlyPastDay:
-      'Ce jour est passé — vous pouvez seulement consulter les tâches ; modification et enregistrement désactivés.',
+    pastDayNote:
+      'Ce jour est passé — vous pouvez marquer les tâches comme terminées ou les ignorer (×) ; le texte n’est pas modifiable et les changements sont enregistrés dans le cloud.',
     ariaBadgeWorkMonth: "Travail — à faire sur tous les jours avant aujourd'hui : {{count}}",
     ariaBadgePersonalBacklog: "Personnel — à faire sur tous les jours avant aujourd'hui : {{count}}",
     badgePendingTooltip: 'Tâches à faire (ignorer avec × les retire de ce total)',

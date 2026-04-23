@@ -261,7 +261,6 @@ function AgendaView() {
   activeStorageKeyRef.current = activeStorageKey
 
   const todayKey = dateKeyFromDate(new Date())
-  const isPastDayRef = useRef(false)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -366,16 +365,12 @@ function AgendaView() {
   const isToday = dateKey === todayKey
   const isPastDay = dateKey < todayKey
 
-  useEffect(() => {
-    isPastDayRef.current = isPastDay
-  }, [isPastDay])
-
   const autoSavePayload = useMemo(() => {
-    if (!user || !sb || isPastDay) return null
+    if (!user || !sb) return null
     const list = drafts[activeStorageKey]
     if (list === undefined) return null
     return JSON.stringify(list)
-  }, [drafts, activeStorageKey, isPastDay, user, sb])
+  }, [drafts, activeStorageKey, user, sb])
 
   useEffect(() => {
     if (autoSavePayload === null) {
@@ -391,7 +386,6 @@ function AgendaView() {
     autoSaveTimerRef.current = window.setTimeout(() => {
       autoSaveTimerRef.current = null
       void (async () => {
-        if (isPastDayRef.current) return
         const key = activeStorageKeyRef.current
         const list = draftsRef.current[key]
         if (!list) return
@@ -423,7 +417,7 @@ function AgendaView() {
         window.clearTimeout(autoSaveTimerRef.current)
         autoSaveTimerRef.current = null
       }
-      if (!sb || !user || isPastDayRef.current) return
+      if (!sb || !user) return
       const key = activeStorageKeyRef.current
       const list = draftsRef.current[key]
       if (!list) return
@@ -489,7 +483,11 @@ function AgendaView() {
   }
 
   const updateTask = (id: string, patch: Partial<Task>) => {
-    if (isPastDay) return
+    if (isPastDay) {
+      const keys = Object.keys(patch) as (keyof Task)[]
+      const onlyStatus = keys.length > 0 && keys.every((k) => k === 'completed' || k === 'ignored')
+      if (!onlyStatus) return
+    }
     setTasksForDay((list) =>
       list.map((t) => (t.id === id ? { ...t, ...patch } : t)),
     )
@@ -672,7 +670,7 @@ function AgendaView() {
                 <p className="agenda__loading">{t.loadingDay}</p>
               ) : (
                 <>
-                  {isPastDay && <p className="agenda__readonly-note">{t.readOnlyPastDay}</p>}
+                  {isPastDay && <p className="agenda__readonly-note">{t.pastDayNote}</p>}
                   <ul className="agenda__tasks">
                     {tasks.map((task) => (
                       <li key={task.id} className={`agenda__task${task.ignored ? ' agenda__task--ignored' : ''}`}>
@@ -694,7 +692,7 @@ function AgendaView() {
                           placeholder={t.taskPlaceholder}
                           aria-label={t.ariaTaskText}
                         />
-                        {!isPastDay && (task.ignored || task.text.trim().length > 0) && (
+                        {(task.ignored || task.text.trim().length > 0) && (
                           <button
                             type="button"
                             className="agenda__task-ignore"
@@ -710,7 +708,7 @@ function AgendaView() {
                           type="button"
                           role="switch"
                           aria-checked={task.completed}
-                          disabled={isPastDay || Boolean(task.ignored)}
+                          disabled={Boolean(task.ignored)}
                           aria-label={task.completed ? t.ariaMarkTodo : t.ariaMarkDone}
                           className={`agenda__switch ${task.completed ? 'agenda__switch--done' : ''}`}
                           onClick={() => updateTask(task.id, { completed: !task.completed })}
@@ -730,7 +728,7 @@ function AgendaView() {
               )}
             </main>
 
-            <footer className={`agenda__footer${isPastDay ? ' agenda__footer--readonly' : ''}`}>
+            <footer className="agenda__footer">
               {saveHint && <span className="agenda__saved">{saveHint}</span>}
             </footer>
           </>
