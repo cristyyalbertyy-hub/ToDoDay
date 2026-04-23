@@ -32,6 +32,61 @@ function parseTasksJson(raw: unknown): Task[] | null {
   return tasks.length ? tasks : null
 }
 
+function countActivePendingInTaskList(tasks: Task[]): number {
+  let n = 0
+  for (const task of tasks) {
+    if (!task.ignored && !task.completed && task.text.trim().length > 0) n++
+  }
+  return n
+}
+
+/** Tarefas por fazer (não ignoradas) em todos os dias anteriores a `todayDayKey` na nuvem. */
+export async function countPastPendingInCloud(
+  sb: SupabaseClient,
+  userId: string,
+  agenda: 'work' | 'personal',
+  todayDayKey: string,
+): Promise<number> {
+  const prefix = `${agenda}|`
+  const { data: rows, error } = await sb
+    .from('day_tasks')
+    .select('tasks')
+    .eq('user_id', userId)
+    .gte('date_key', `${prefix}2000-01-01`)
+    .lt('date_key', `${prefix}${todayDayKey}`)
+
+  if (error) {
+    console.error(error)
+    return 0
+  }
+
+  let total = 0
+  for (const row of rows ?? []) {
+    const parsed = parseTasksJson(row.tasks)
+    if (parsed) total += countActivePendingInTaskList(parsed)
+  }
+
+  if (agenda === 'work') {
+    const { data: legacy, error: legErr } = await sb
+      .from('day_tasks')
+      .select('tasks')
+      .eq('user_id', userId)
+      .lt('date_key', todayDayKey)
+      .not('date_key', 'like', '%|%')
+
+    if (legErr) {
+      console.error(legErr)
+      return total
+    }
+    for (const row of legacy ?? []) {
+      const parsed = parseTasksJson(row.tasks)
+      if (parsed) total += countActivePendingInTaskList(parsed)
+    }
+  }
+
+  return total
+}
+
 async function migrateLegacyDayToWork(
   sb: SupabaseClient,
   userId: string,

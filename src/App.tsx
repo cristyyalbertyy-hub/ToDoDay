@@ -3,7 +3,12 @@ import { AuthScreen } from './components/AuthScreen'
 import { useAuth } from './contexts/AuthContext'
 import { useI18n } from './i18n/I18nContext'
 import { LanguageSwitcher } from './i18n/LanguageSwitcher'
-import { loadDayTasksFromCloud, loadMonthTasksFromCloud, saveDayTasksToCloud } from './lib/dayTasksRemote'
+import {
+  countPastPendingInCloud,
+  loadDayTasksFromCloud,
+  loadMonthTasksFromCloud,
+  saveDayTasksToCloud,
+} from './lib/dayTasksRemote'
 import { getSupabase, supabaseConfigured } from './lib/supabase'
 import type { Task } from './types/task'
 import './App.css'
@@ -92,14 +97,6 @@ function fromStorageDateKey(storageKey: string): { agenda: AgendaKind | null; da
   const agenda = storageKey.slice(0, sepAt)
   if (agenda !== 'work' && agenda !== 'personal') return { agenda: null, dayKey: storageKey }
   return { agenda, dayKey: storageKey.slice(sepAt + 1) }
-}
-
-function countActivePendingInTasks(dayTasks: Task[]): number {
-  let n = 0
-  for (const task of dayTasks) {
-    if (!task.ignored && !task.completed && task.text.trim().length > 0) n++
-  }
-  return n
 }
 
 function getDayRecordState(tasks: Task[] | undefined): DayRecordState | null {
@@ -237,12 +234,19 @@ function AgendaView() {
   const [pickerYear, setPickerYear] = useState(() => parseDateKey(initialDateKey).getFullYear())
   const [pickerMonth, setPickerMonth] = useState(() => parseDateKey(initialDateKey).getMonth())
   const [loadedMonthKeys, setLoadedMonthKeys] = useState<Record<string, true>>({})
+  const [workPastPendingCount, setWorkPastPendingCount] = useState(0)
+  const [personalPastPendingCount, setPersonalPastPendingCount] = useState(0)
 
   const draftsRef = useRef(drafts)
   draftsRef.current = drafts
 
   const activeStorageKey = useMemo(() => toStorageDateKey(agendaKind, dateKey), [agendaKind, dateKey])
+  const activeStorageKeyRef = useRef(activeStorageKey)
+  activeStorageKeyRef.current = activeStorageKey
+
   const todayKey = dateKeyFromDate(new Date())
+  const isPastDayRef = useRef(false)
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!user || !sb) return
@@ -311,6 +315,21 @@ function AgendaView() {
     if (dateKey < dateKeyFromDate(new Date())) setSaveHint(null)
   }, [dateKey, agendaKind])
 
+  const refreshPastPendingBadges = useCallback(async () => {
+    if (!sb || !user) return
+    const tk = dateKeyFromDate(new Date())
+    const [workN, personalN] = await Promise.all([
+      countPastPendingInCloud(sb, user.id, 'work', tk),
+      countPastPendingInCloud(sb, user.id, 'personal', tk),
+    ])
+    setWorkPastPendingCount(workN)
+    setPersonalPastPendingCount(personalN)
+  }, [sb, user?.id])
+
+  useEffect(() => {
+    void refreshPastPendingBadges()
+  }, [refreshPastPendingBadges])
+
   const goToDate = useCallback((key: string) => {
     setDateKey(key)
   }, [])
@@ -330,6 +349,81 @@ function AgendaView() {
   )
   const isToday = dateKey === todayKey
   const isPastDay = dateKey < todayKey
+
+  useEffect(() => {
+    isPastDayRef.current = isPastDay
+  }, [isPastDay])
+
+  const autoSavePayload = useMemo(() => {
+    if (!user || !sb || isPastDay) return null
+    const list = drafts[activeStorageKey]
+    if (list === undefined) return null
+    return JSON.stringify(list)
+  }, [drafts, activeStorageKey, isPastDay, user, sb])
+
+  useEffect(() => {
+    if (autoSavePayload === null) {
+      if (autoSaveTimerRef.current != null) {
+        window.clearTimeout(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = null
+      }
+      return
+    }
+    if (!sb || !user) return
+
+    if (autoSaveTimerRef.current != null) window.clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      autoSaveTimerRef.current = null
+      void (async () => {
+        if (isPastDayRef.current) return
+        const key = activeStorageKeyRef.current
+        const list = draftsRef.current[key]
+        if (!list) return
+        const err = await saveDayTasksToCloud(sb, user.id, key, list)
+        if (err) {
+          setSaveHint(err)
+          window.setTimeout(() => setSaveHint(null), 5000)
+          return
+        }
+        void refreshPastPendingBadges()
+      })()
+    }, 650)
+
+    return () => {
+      if (autoSaveTimerRef.current != null) {
+        window.clearTimeout(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = null
+      }
+    }
+  }, [autoSavePayload, sb, user?.id, refreshPastPendingBadges])
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshPastPendingBadges()
+        return
+      }
+      if (autoSaveTimerRef.current != null) {
+        window.clearTimeout(autoSaveTimerRef.current)
+        autoSaveTimerRef.current = null
+      }
+      if (!sb || !user || isPastDayRef.current) return
+      const key = activeStorageKeyRef.current
+      const list = draftsRef.current[key]
+      if (!list) return
+      void (async () => {
+        const err = await saveDayTasksToCloud(sb, user.id, key, list)
+        if (err) {
+          setSaveHint(err)
+          window.setTimeout(() => setSaveHint(null), 5000)
+          return
+        }
+        void refreshPastPendingBadges()
+      })()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [refreshPastPendingBadges, sb, user?.id])
 
   const formatted = useMemo(() => {
     const d = parseDateKey(dateKey)
@@ -373,47 +467,9 @@ function AgendaView() {
     return states
   }, [drafts, agendaKind])
 
-  const workMonthPendingCount = useMemo(() => {
-    const monthPrefix = dateKey.slice(0, 7)
-    let n = 0
-    for (const [storageKey, dayTasks] of Object.entries(drafts)) {
-      const parsed = fromStorageDateKey(storageKey)
-      if (parsed.agenda !== 'work') continue
-      const dayKey = parsed.dayKey
-      if (!dayKey.startsWith(monthPrefix) || dayKey === todayKey) continue
-      n += countActivePendingInTasks(dayTasks)
-    }
-    return n
-  }, [drafts, dateKey, todayKey])
-
-  const personalBacklogPendingCount = useMemo(() => {
-    let n = 0
-    for (const [storageKey, dayTasks] of Object.entries(drafts)) {
-      const parsed = fromStorageDateKey(storageKey)
-      if (parsed.agenda !== 'personal') continue
-      if (parsed.dayKey >= todayKey) continue
-      n += countActivePendingInTasks(dayTasks)
-    }
-    return n
-  }, [drafts, todayKey])
-
   const pickDay = (key: string) => {
     goToDate(key)
     setPickerOpen(false)
-  }
-
-  const handleSave = async () => {
-    if (isPastDay) return
-    const list = drafts[activeStorageKey]
-    if (!list || !sb || !user) return
-    const err = await saveDayTasksToCloud(sb, user.id, activeStorageKey, list)
-    if (err) {
-      setSaveHint(err)
-      window.setTimeout(() => setSaveHint(null), 5000)
-      return
-    }
-    setSaveHint(t.saved)
-    window.setTimeout(() => setSaveHint(null), 2000)
   }
 
   const updateTask = (id: string, patch: Partial<Task>) => {
@@ -485,15 +541,15 @@ function AgendaView() {
                   <div className={`agenda__scope-col${agendaKind === 'work' ? ' agenda__scope-col--active' : ''}`}>
                     <div
                       className="agenda__scope-badges"
-                      aria-label={t.ariaBadgeWorkMonth.replace('{{count}}', String(workMonthPendingCount))}
+                      aria-label={t.ariaBadgeWorkMonth.replace('{{count}}', String(workPastPendingCount))}
                     >
-                      {workMonthPendingCount > 0 && (
+                      {workPastPendingCount > 0 && (
                         <span className="agenda__scope-dot" title={t.badgePendingTooltip} aria-hidden="true" />
                       )}
                       <span
-                        className={`agenda__scope-count${workMonthPendingCount === 0 ? ' agenda__scope-count--zero' : ''}`}
+                        className={`agenda__scope-count${workPastPendingCount === 0 ? ' agenda__scope-count--zero' : ''}`}
                       >
-                        {workMonthPendingCount}
+                        {workPastPendingCount}
                       </span>
                     </div>
                     <button
@@ -511,18 +567,18 @@ function AgendaView() {
                       className="agenda__scope-badges"
                       aria-label={t.ariaBadgePersonalBacklog.replace(
                         '{{count}}',
-                        String(personalBacklogPendingCount),
+                        String(personalPastPendingCount),
                       )}
                     >
-                      {personalBacklogPendingCount > 0 && (
+                      {personalPastPendingCount > 0 && (
                         <span className="agenda__scope-dot" title={t.badgePendingTooltip} aria-hidden="true" />
                       )}
                       <span
                         className={`agenda__scope-count${
-                          personalBacklogPendingCount === 0 ? ' agenda__scope-count--zero' : ''
+                          personalPastPendingCount === 0 ? ' agenda__scope-count--zero' : ''
                         }`}
                       >
-                        {personalBacklogPendingCount}
+                        {personalPastPendingCount}
                       </span>
                     </div>
                     <button
@@ -660,16 +716,6 @@ function AgendaView() {
 
             <footer className={`agenda__footer${isPastDay ? ' agenda__footer--readonly' : ''}`}>
               {saveHint && <span className="agenda__saved">{saveHint}</span>}
-              {!isPastDay && (
-                <button
-                  type="button"
-                  className="agenda__save"
-                  disabled={tasks === undefined}
-                  onClick={() => void handleSave()}
-                >
-                  {t.save}
-                </button>
-              )}
             </footer>
           </>
         )}
