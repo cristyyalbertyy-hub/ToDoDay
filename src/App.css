@@ -519,6 +519,13 @@
   text-transform: capitalize;
 }
 
+.agenda__date-line-de {
+  font-weight: 300;
+  font-size: 0.62em;
+  opacity: 0.55;
+  letter-spacing: 0.03em;
+}
+
 .agenda__weekday {
   margin: 0.2rem 0 0;
   font-size: 0.95rem;

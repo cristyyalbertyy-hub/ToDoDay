@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { AuthScreen } from './components/AuthScreen'
 import { useAuth } from './contexts/AuthContext'
 import { useI18n } from './i18n/I18nContext'
@@ -23,6 +24,21 @@ function dateKeyFromDate(d: Date): string {
 function parseDateKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number)
   return new Date(y, m - 1, d)
+}
+
+/** Deixa os « de » da data (ex.: PT) mais discretos — resto inalterado. */
+function dateLineWithDiscreteDe(text: string): ReactNode {
+  const parts = text.split(/([\s\u00a0]de[\s\u00a0])/gi)
+  return parts.map((part, i) => {
+    if (/^[\s\u00a0]de[\s\u00a0]$/i.test(part)) {
+      return (
+        <span key={i} className="agenda__date-line-de">
+          {part}
+        </span>
+      )
+    }
+    return <Fragment key={i}>{part}</Fragment>
+  })
 }
 
 function monthBoundariesFromDateKey(key: string): { start: string; end: string } {
@@ -637,7 +653,7 @@ function AgendaView() {
                       {t.today}
                     </p>
                   )}
-                  <p className="agenda__date-line">{formatted.dateLine}</p>
+                  <p className="agenda__date-line">{dateLineWithDiscreteDe(formatted.dateLine)}</p>
                   <p className="agenda__weekday">{formatted.weekday}</p>
                 </button>
                 <button
