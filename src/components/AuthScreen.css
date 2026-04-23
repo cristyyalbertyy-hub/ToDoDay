@@ -1,0 +1,128 @@
+.auth {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100svh - 2rem);
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  box-sizing: border-box;
+}
+
+.auth__card {
+  width: 100%;
+  max-width: 380px;
+  padding: 1.75rem 1.5rem;
+  border-radius: 22px;
+  border: 1px solid var(--ag-card-border);
+  background: var(--ag-card);
+  box-shadow: var(--ag-card-shadow);
+  backdrop-filter: blur(10px);
+}
+
+.auth__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.auth__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ag-heading);
+  text-align: left;
+  flex: 1;
+}
+
+.auth__lang {
+  flex-shrink: 0;
+}
+
+.auth__subtitle {
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+  color: var(--ag-muted);
+  text-align: center;
+  width: 100%;
+}
+
+.auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.auth__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ag-heading);
+}
+
+.auth__input {
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--ag-border);
+  background: var(--ag-input-bg);
+  color: var(--ag-heading);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.auth__input:focus {
+  outline: none;
+  border-color: var(--ag-accent);
+  box-shadow: 0 0 0 3px var(--ag-accent-soft);
+}
+
+.auth__message {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #e8c4a0;
+  line-height: 1.35;
+}
+
+.auth__submit {
+  margin-top: 0.25rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(165deg, var(--ag-accent-bright) 0%, var(--ag-accent) 45%, var(--ag-accent-deep) 100%);
+  color: #0a0f1a;
+  font: inherit;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35), 0 0 24px rgba(212, 175, 55, 0.12);
+}
+
+.auth__submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.auth__toggle {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 0.5rem;
+  border: none;
+  background: none;
+  color: var(--ag-accent);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth__toggle:hover {
+  color: var(--ag-accent-deep);
+}

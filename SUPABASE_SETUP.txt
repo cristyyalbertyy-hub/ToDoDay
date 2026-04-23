@@ -1,0 +1,49 @@
+ToDoDay — Supabase (login email + tarefas na nuvem)
+==================================================
+
+1) Criar projeto
+   - Vai a https://supabase.com/dashboard e cria um projeto novo (grátis).
+   - Em Project Settings → API, copia:
+     - Project URL  →  VITE_SUPABASE_URL
+     - anon public key  →  VITE_SUPABASE_ANON_KEY
+
+2) Ficheiro .env na pasta ToDoDay (ao lado de package.json)
+   VITE_SUPABASE_URL=https://xxxx.supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJhbGciOiJI...
+
+3) Tabela e segurança (IMPORTANTE)
+   - No Supabase: SQL Editor → New query.
+   - Apaga tudo o que estiver no editor.
+   - Abre no teu PC o ficheiro supabase-schema.sql (na pasta ToDoDay).
+     É um ficheiro à parte — NÃO uses este ficheiro SUPABASE_SETUP.txt no SQL.
+     O SQL começa por: create table if not exists public.day_tasks
+   - Copia só o conteúdo de supabase-schema.sql, cola no SQL Editor e Run.
+
+4) Autenticação por email
+   - Authentication → Providers → Email: ativado.
+   - Para testes com a família, em Authentication → Providers → Email podes
+     desativar "Confirm email" (evita ter de clicar no link antes de entrar).
+     Em produção podes voltar a ativar confirmação por email.
+
+5) Correr a app
+   npm install
+   npm run dev
+
+6) Contas
+   - Cada pessoa (filhos, amiga) usa "Registar" com o email dela e uma palavra-passe.
+   - Cada conta vê só as suas tarefas (Row Level Security na tabela day_tasks).
+
+7) Publicar na Internet (Vercel)
+   - O repositório inclui vercel.json com um rewrite para index.html (útil se
+     mais tarde usares rotas no URL no browser).
+   - Coloca o código no GitHub (ou GitLab/Bitbucket), entra em vercel.com,
+     "Add New" → "Project", importa o repo. O Vercel deteta Vite: build
+     npm run build, output dist.
+   - No projeto Vercel: Settings → Environment Variables → adiciona
+     VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (iguais ao .env local),
+     para Production (e Preview se quiseres builds de branch).
+   - Depois do primeiro deploy, copia o URL (ex.: https://xxx.vercel.app).
+     No Supabase: Authentication → URL Configuration → em "Redirect URLs"
+     (e "Site URL" se aplicável) inclui esse URL para o login em produção
+     não falhar.
+   - Alternativa sem Git: na pasta do projeto, npx vercel (segue as prompts).

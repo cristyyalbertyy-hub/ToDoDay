@@ -1,0 +1,48 @@
+/* Azul escuro sólido + dourado — estilo clássico / glamour */
+:root {
+  color-scheme: dark;
+
+  --ag-page: #0a0f1a;
+  --ag-text: #c4c0b8;
+  --ag-heading: #f5f0e6;
+  --ag-muted: #8b9099;
+  --ag-border: rgba(201, 169, 98, 0.28);
+  --ag-surface: rgba(18, 28, 48, 0.95);
+  --ag-input-bg: #121b2e;
+  --ag-accent: #d4af37;
+  --ag-accent-bright: #e8c76a;
+  --ag-accent-deep: #9a7b24;
+  --ag-accent-soft: rgba(212, 175, 55, 0.14);
+  --ag-card: rgba(14, 22, 38, 0.94);
+  --ag-card-border: rgba(212, 175, 55, 0.38);
+  --ag-card-shadow: 0 28px 64px rgba(0, 0, 0, 0.55);
+
+  font-family:
+    'Segoe UI',
+    system-ui,
+    Georgia,
+    'Times New Roman',
+    serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--ag-text);
+  background-color: var(--ag-page);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background-color: var(--ag-page);
+}
+
+#root {
+  min-height: 100svh;
+}
