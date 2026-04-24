@@ -577,6 +577,26 @@
   gap: 0.65rem;
 }
 
+.agenda__tasks-more {
+  align-self: flex-start;
+  margin: 0.05rem 0 0.15rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 10px;
+  border: 1px dashed var(--ag-border);
+  background: var(--ag-accent-soft);
+  color: var(--ag-accent-deep);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.agenda__tasks-more:hover {
+  border-color: var(--ag-accent);
+  color: var(--ag-accent);
+}
+
 .agenda__task {
   display: flex;
   align-items: center;

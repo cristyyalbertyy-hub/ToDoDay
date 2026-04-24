@@ -33,9 +33,10 @@ export type Messages = {
   ariaMarkDone: string
   ariaAddField: string
   pastDayNote: string
-  ariaBadgeWorkMonth: string
-  ariaBadgePersonalBacklog: string
-  badgePendingTooltip: string
+  ariaBadgeWorkToday: string
+  ariaBadgePersonalToday: string
+  badgeTodayPendingTooltip: string
+  showMoreTasks: string
   save: string
   saved: string
   setupTitle: string
@@ -94,9 +95,10 @@ export const translations: Record<Lang, Messages> = {
     ariaAddField: 'Adicionar campo',
     pastDayNote:
       'Este dia já passou — podes marcar como concluídas ou ignorar (×); o texto não é editável e as alterações guardam-se na nuvem.',
-    ariaBadgeWorkMonth: 'Trabalho — por fazer em todos os dias anteriores a hoje: {{count}}',
-    ariaBadgePersonalBacklog: 'Pessoal — por fazer em todos os dias anteriores a hoje: {{count}}',
-    badgePendingTooltip: 'Tarefas por fazer (ignorar com × deixa de contar aqui)',
+    ariaBadgeWorkToday: 'Trabalho — por fazer hoje: {{count}}',
+    ariaBadgePersonalToday: 'Pessoal — por fazer hoje: {{count}}',
+    badgeTodayPendingTooltip: 'Tarefas por fazer hoje (× ignora e deixa de contar)',
+    showMoreTasks: 'Mostrar mais ({{n}})',
     save: 'Guardar',
     saved: 'Guardado.',
     setupTitle: 'Configurar Supabase',
@@ -155,9 +157,10 @@ export const translations: Record<Lang, Messages> = {
     ariaAddField: 'Add field',
     pastDayNote:
       'This day is in the past — you can mark tasks done or ignore them (×); text is not editable and changes sync to the cloud.',
-    ariaBadgeWorkMonth: 'Work — pending on all days before today: {{count}}',
-    ariaBadgePersonalBacklog: 'Personal — pending on all days before today: {{count}}',
-    badgePendingTooltip: 'Pending tasks (ignore with × to remove from this count)',
+    ariaBadgeWorkToday: 'Work — pending today: {{count}}',
+    ariaBadgePersonalToday: 'Personal — pending today: {{count}}',
+    badgeTodayPendingTooltip: 'Pending today (ignore with × to remove from this count)',
+    showMoreTasks: 'Show more ({{n}})',
     save: 'Save',
     saved: 'Saved.',
     setupTitle: 'Set up Supabase',
@@ -216,9 +219,10 @@ export const translations: Record<Lang, Messages> = {
     ariaAddField: 'Ajouter un champ',
     pastDayNote:
       'Ce jour est passé — vous pouvez marquer les tâches comme terminées ou les ignorer (×) ; le texte n’est pas modifiable et les changements sont enregistrés dans le cloud.',
-    ariaBadgeWorkMonth: "Travail — à faire sur tous les jours avant aujourd'hui : {{count}}",
-    ariaBadgePersonalBacklog: "Personnel — à faire sur tous les jours avant aujourd'hui : {{count}}",
-    badgePendingTooltip: 'Tâches à faire (ignorer avec × les retire de ce total)',
+    ariaBadgeWorkToday: "Travail — à faire aujourd'hui : {{count}}",
+    ariaBadgePersonalToday: "Personnel — à faire aujourd'hui : {{count}}",
+    badgeTodayPendingTooltip: "À faire aujourd'hui (× ignorer les retire de ce total)",
+    showMoreTasks: 'Afficher plus ({{n}})',
     save: 'Enregistrer',
     saved: 'Enregistré.',
     setupTitle: 'Configurer Supabase',

@@ -40,51 +40,130 @@ function countActivePendingInTaskList(tasks: Task[]): number {
   return n
 }
 
-/** Tarefas por fazer (não ignoradas) em todos os dias anteriores a `todayDayKey` na nuvem. */
-export async function countPastPendingInCloud(
+function addCalendarDay(dayKey: string, delta: number): string {
+  const [y, m, d] = dayKey.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + delta)
+  const yy = dt.getFullYear()
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
+function rollAnchorStorageKey(userId: string, agenda: 'work' | 'personal'): string {
+  return `tododay.rollAnchor.v1.${userId}.${agenda}`
+}
+
+function emptyDayTaskList(): Task[] {
+  return [{ id: crypto.randomUUID(), text: '', completed: false, ignored: false }]
+}
+
+function toStorageDateKey(agenda: 'work' | 'personal', dayKey: string): string {
+  return `${agenda}|${dayKey}`
+}
+
+/** Pendentes activas só no dia `todayDayKey` (chave `agenda|YYYY-MM-DD`). */
+export async function countTodayPendingInCloud(
   sb: SupabaseClient,
   userId: string,
   agenda: 'work' | 'personal',
   todayDayKey: string,
 ): Promise<number> {
-  const prefix = `${agenda}|`
-  const { data: rows, error } = await sb
-    .from('day_tasks')
-    .select('tasks')
-    .eq('user_id', userId)
-    .gte('date_key', `${prefix}2000-01-01`)
-    .lt('date_key', `${prefix}${todayDayKey}`)
+  const storageKey = toStorageDateKey(agenda, todayDayKey)
+  const list = await loadDayTasksFromCloud(sb, userId, storageKey)
+  if (!list) return 0
+  return countActivePendingInTaskList(list)
+}
 
-  if (error) {
-    console.error(error)
-    return 0
+/**
+ * Move pendentes do dia `fromDayKey` para o dia seguinte na nuvem (ordem: primeiro as roladas, depois o que já existia).
+ * Idempotente: se a tarefa já existir no destino, remove-se só da origem.
+ */
+async function rollOneDayPair(
+  sb: SupabaseClient,
+  userId: string,
+  agenda: 'work' | 'personal',
+  fromDayKey: string,
+  toDayKey: string,
+): Promise<string | null> {
+  const fromStorage = toStorageDateKey(agenda, fromDayKey)
+  const toStorage = toStorageDateKey(agenda, toDayKey)
+
+  const fromRaw = await loadDayTasksFromCloud(sb, userId, fromStorage)
+  const fromList = fromRaw ?? []
+
+  const pending: Task[] = []
+  for (const t of fromList) {
+    if (!t.ignored && !t.completed && t.text.trim().length > 0) pending.push(t)
   }
 
-  let total = 0
-  for (const row of rows ?? []) {
-    const parsed = parseTasksJson(row.tasks)
-    if (parsed) total += countActivePendingInTaskList(parsed)
+  if (pending.length === 0) return null
+
+  const toRaw = await loadDayTasksFromCloud(sb, userId, toStorage)
+  let toList = toRaw && toRaw.length > 0 ? [...toRaw] : emptyDayTaskList()
+
+  const toIds = new Set(toList.map((t) => t.id))
+  const toAdd: Task[] = []
+  for (const p of pending) {
+    if (toIds.has(p.id)) continue
+    toAdd.push(p)
+    toIds.add(p.id)
   }
 
-  if (agenda === 'work') {
-    const { data: legacy, error: legErr } = await sb
-      .from('day_tasks')
-      .select('tasks')
-      .eq('user_id', userId)
-      .lt('date_key', todayDayKey)
-      .not('date_key', 'like', '%|%')
+  const pendingIds = new Set(pending.map((p) => p.id))
+  const newFrom = fromList.filter((t) => !pendingIds.has(t.id))
+  const normalizedFrom = newFrom.length > 0 ? newFrom : emptyDayTaskList()
+  const newTo = [...toAdd, ...toList]
 
-    if (legErr) {
-      console.error(legErr)
-      return total
+  const errTo = await saveDayTasksToCloud(sb, userId, toStorage, newTo)
+  if (errTo) return errTo
+
+  const errFrom = await saveDayTasksToCloud(sb, userId, fromStorage, normalizedFrom)
+  if (errFrom) return errFrom
+
+  return null
+}
+
+/**
+ * Encadeia rolls até a data de hoje: pendentes de `anchor` → `anchor+1` → … → `today`.
+ * `anchor` em localStorage: primeira vez grava-se `today` sem roll retroativo.
+ */
+export async function rollAgendaThroughToday(
+  sb: SupabaseClient,
+  userId: string,
+  agenda: 'work' | 'personal',
+  todayDayKey: string,
+): Promise<boolean> {
+  const lsKey = rollAnchorStorageKey(userId, agenda)
+  let cursor = localStorage.getItem(lsKey)
+  if (!cursor) {
+    localStorage.setItem(lsKey, todayDayKey)
+    return false
+  }
+  if (cursor >= todayDayKey) return false
+
+  let changed = false
+  while (cursor < todayDayKey) {
+    const next = addCalendarDay(cursor, 1)
+    const err = await rollOneDayPair(sb, userId, agenda, cursor, next)
+    if (err) {
+      console.error(err)
+      break
     }
-    for (const row of legacy ?? []) {
-      const parsed = parseTasksJson(row.tasks)
-      if (parsed) total += countActivePendingInTaskList(parsed)
-    }
+    changed = true
+    cursor = next
+    localStorage.setItem(lsKey, cursor)
   }
+  return changed
+}
 
-  return total
+export async function rollAllAgendasThroughToday(
+  sb: SupabaseClient,
+  userId: string,
+  todayDayKey: string,
+): Promise<boolean> {
+  const w = await rollAgendaThroughToday(sb, userId, 'work', todayDayKey)
+  const p = await rollAgendaThroughToday(sb, userId, 'personal', todayDayKey)
+  return w || p
 }
 
 async function migrateLegacyDayToWork(

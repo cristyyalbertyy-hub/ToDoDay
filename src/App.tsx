@@ -5,9 +5,10 @@ import { useAuth } from './contexts/AuthContext'
 import { useI18n } from './i18n/I18nContext'
 import { LanguageSwitcher } from './i18n/LanguageSwitcher'
 import {
-  countPastPendingInCloud,
+  countTodayPendingInCloud,
   loadDayTasksFromCloud,
   loadMonthTasksFromCloud,
+  rollAllAgendasThroughToday,
   saveDayTasksToCloud,
 } from './lib/dayTasksRemote'
 import { getSupabase, supabaseConfigured } from './lib/supabase'
@@ -102,6 +103,7 @@ function defaultTasks(): Task[] {
 type DayRecordState = 'pending' | 'done' | 'ignored'
 type AgendaKind = 'work' | 'personal'
 const STORAGE_SEP = '|'
+const TODAY_TASK_PREVIEW = 8
 
 function toStorageDateKey(agenda: AgendaKind, dayKey: string): string {
   return `${agenda}${STORAGE_SEP}${dayKey}`
@@ -250,8 +252,10 @@ function AgendaView() {
   const [pickerYear, setPickerYear] = useState(() => parseDateKey(initialDateKey).getFullYear())
   const [pickerMonth, setPickerMonth] = useState(() => parseDateKey(initialDateKey).getMonth())
   const [loadedMonthKeys, setLoadedMonthKeys] = useState<Record<string, true>>({})
-  const [workPastPendingCount, setWorkPastPendingCount] = useState(0)
-  const [personalPastPendingCount, setPersonalPastPendingCount] = useState(0)
+  const [workTodayPendingCount, setWorkTodayPendingCount] = useState(0)
+  const [personalTodayPendingCount, setPersonalTodayPendingCount] = useState(0)
+  const [expandedTodayTasks, setExpandedTodayTasks] = useState(false)
+  const [dayClock, setDayClock] = useState(0)
 
   const draftsRef = useRef(drafts)
   draftsRef.current = drafts
@@ -260,8 +264,13 @@ function AgendaView() {
   const activeStorageKeyRef = useRef(activeStorageKey)
   activeStorageKeyRef.current = activeStorageKey
 
-  const todayKey = dateKeyFromDate(new Date())
+  const todayKey = useMemo(() => dateKeyFromDate(new Date()), [dayClock])
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const id = window.setInterval(() => setDayClock((c) => c + 1), 60_000)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
     if (!user || !sb) return
@@ -330,20 +339,34 @@ function AgendaView() {
     if (dateKey < dateKeyFromDate(new Date())) setSaveHint(null)
   }, [dateKey, agendaKind])
 
-  const refreshPastPendingBadges = useCallback(async () => {
+  const refreshTodayPendingBadges = useCallback(async () => {
     if (!sb || !user) return
     const tk = dateKeyFromDate(new Date())
     const [workN, personalN] = await Promise.all([
-      countPastPendingInCloud(sb, user.id, 'work', tk),
-      countPastPendingInCloud(sb, user.id, 'personal', tk),
+      countTodayPendingInCloud(sb, user.id, 'work', tk),
+      countTodayPendingInCloud(sb, user.id, 'personal', tk),
     ])
-    setWorkPastPendingCount(workN)
-    setPersonalPastPendingCount(personalN)
+    setWorkTodayPendingCount(workN)
+    setPersonalTodayPendingCount(personalN)
   }, [sb, user?.id])
 
   useEffect(() => {
-    void refreshPastPendingBadges()
-  }, [refreshPastPendingBadges])
+    if (!user || !sb) return
+    let cancelled = false
+    void (async () => {
+      const tk = dateKeyFromDate(new Date())
+      const didRoll = await rollAllAgendasThroughToday(sb, user.id, tk)
+      if (cancelled) return
+      if (didRoll) {
+        setDrafts({})
+        setLoadedMonthKeys({})
+      }
+      void refreshTodayPendingBadges()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, sb, dayClock, refreshTodayPendingBadges])
 
   const goToDate = useCallback((key: string) => {
     setDateKey(key)
@@ -364,6 +387,17 @@ function AgendaView() {
   )
   const isToday = dateKey === todayKey
   const isPastDay = dateKey < todayKey
+
+  const todayTaskPreview =
+    tasks !== undefined && isToday && tasks.length > TODAY_TASK_PREVIEW && !expandedTodayTasks
+  const tasksToShow =
+    tasks === undefined ? undefined : todayTaskPreview ? tasks.slice(0, TODAY_TASK_PREVIEW) : tasks
+  const hiddenTodayTasks =
+    tasks !== undefined && todayTaskPreview ? tasks.length - TODAY_TASK_PREVIEW : 0
+
+  useEffect(() => {
+    if (dateKey !== todayKey) setExpandedTodayTasks(false)
+  }, [dateKey, todayKey])
 
   const autoSavePayload = useMemo(() => {
     if (!user || !sb) return null
@@ -395,7 +429,7 @@ function AgendaView() {
           window.setTimeout(() => setSaveHint(null), 5000)
           return
         }
-        void refreshPastPendingBadges()
+        void refreshTodayPendingBadges()
       })()
     }, 650)
 
@@ -405,12 +439,12 @@ function AgendaView() {
         autoSaveTimerRef.current = null
       }
     }
-  }, [autoSavePayload, sb, user?.id, refreshPastPendingBadges])
+  }, [autoSavePayload, sb, user?.id, refreshTodayPendingBadges])
 
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === 'visible') {
-        void refreshPastPendingBadges()
+        setDayClock((c) => c + 1)
         return
       }
       if (autoSaveTimerRef.current != null) {
@@ -428,12 +462,12 @@ function AgendaView() {
           window.setTimeout(() => setSaveHint(null), 5000)
           return
         }
-        void refreshPastPendingBadges()
+        void refreshTodayPendingBadges()
       })()
     }
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
-  }, [refreshPastPendingBadges, sb, user?.id])
+  }, [refreshTodayPendingBadges, sb, user?.id])
 
   const formatted = useMemo(() => {
     const d = parseDateKey(dateKey)
@@ -555,15 +589,15 @@ function AgendaView() {
                   <div className={`agenda__scope-col${agendaKind === 'work' ? ' agenda__scope-col--active' : ''}`}>
                     <div
                       className="agenda__scope-badges"
-                      aria-label={t.ariaBadgeWorkMonth.replace('{{count}}', String(workPastPendingCount))}
+                      aria-label={t.ariaBadgeWorkToday.replace('{{count}}', String(workTodayPendingCount))}
                     >
-                      {workPastPendingCount > 0 && (
-                        <span className="agenda__scope-dot" title={t.badgePendingTooltip} aria-hidden="true" />
+                      {workTodayPendingCount > 0 && (
+                        <span className="agenda__scope-dot" title={t.badgeTodayPendingTooltip} aria-hidden="true" />
                       )}
                       <span
-                        className={`agenda__scope-count${workPastPendingCount === 0 ? ' agenda__scope-count--zero' : ''}`}
+                        className={`agenda__scope-count${workTodayPendingCount === 0 ? ' agenda__scope-count--zero' : ''}`}
                       >
-                        {workPastPendingCount}
+                        {workTodayPendingCount}
                       </span>
                     </div>
                     <button
@@ -579,20 +613,20 @@ function AgendaView() {
                   <div className={`agenda__scope-col${agendaKind === 'personal' ? ' agenda__scope-col--active' : ''}`}>
                     <div
                       className="agenda__scope-badges"
-                      aria-label={t.ariaBadgePersonalBacklog.replace(
+                      aria-label={t.ariaBadgePersonalToday.replace(
                         '{{count}}',
-                        String(personalPastPendingCount),
+                        String(personalTodayPendingCount),
                       )}
                     >
-                      {personalPastPendingCount > 0 && (
-                        <span className="agenda__scope-dot" title={t.badgePendingTooltip} aria-hidden="true" />
+                      {personalTodayPendingCount > 0 && (
+                        <span className="agenda__scope-dot" title={t.badgeTodayPendingTooltip} aria-hidden="true" />
                       )}
                       <span
                         className={`agenda__scope-count${
-                          personalPastPendingCount === 0 ? ' agenda__scope-count--zero' : ''
+                          personalTodayPendingCount === 0 ? ' agenda__scope-count--zero' : ''
                         }`}
                       >
-                        {personalPastPendingCount}
+                        {personalTodayPendingCount}
                       </span>
                     </div>
                     <button
@@ -672,7 +706,7 @@ function AgendaView() {
                 <>
                   {isPastDay && <p className="agenda__readonly-note">{t.pastDayNote}</p>}
                   <ul className="agenda__tasks">
-                    {tasks.map((task) => (
+                    {(tasksToShow ?? []).map((task) => (
                       <li key={task.id} className={`agenda__task${task.ignored ? ' agenda__task--ignored' : ''}`}>
                         <span
                           className={`agenda__dot ${
@@ -718,6 +752,17 @@ function AgendaView() {
                       </li>
                     ))}
                   </ul>
+
+                  {hiddenTodayTasks > 0 && (
+                    <button
+                      type="button"
+                      className="agenda__tasks-more"
+                      onClick={() => setExpandedTodayTasks(true)}
+                      aria-label={t.showMoreTasks.replace('{{n}}', String(hiddenTodayTasks))}
+                    >
+                      {t.showMoreTasks.replace('{{n}}', String(hiddenTodayTasks))}
+                    </button>
+                  )}
 
                   {!isPastDay && (
                     <button type="button" className="agenda__add" onClick={addField} aria-label={t.ariaAddField}>
