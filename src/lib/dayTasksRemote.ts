@@ -21,11 +21,16 @@ function parseTasksJson(raw: unknown): Task[] | null {
       'text' in item &&
       'completed' in item
     ) {
+      const t = item as Task
       tasks.push({
-        id: String((item as Task).id),
-        text: String((item as Task).text),
-        completed: Boolean((item as Task).completed),
-        ignored: Boolean((item as Task).ignored),
+        id: String(t.id),
+        text: String(t.text),
+        completed: Boolean(t.completed),
+        ignored: Boolean(t.ignored),
+        ...(typeof t.rolledFromId === 'string' && t.rolledFromId ? { rolledFromId: t.rolledFromId } : {}),
+        ...(typeof t.rolledFromDayKey === 'string' && t.rolledFromDayKey
+          ? { rolledFromDayKey: t.rolledFromDayKey }
+          : {}),
       })
     }
   }
@@ -49,9 +54,9 @@ function addCalendarDay(dayKey: string, delta: number): string {
   return `${yy}-${mm}-${dd}`
 }
 
-/** v2: corrige primeira abertura que saltava ontem → hoje; âncora null passa a fazer catch-up. */
+/** v3: roll por cópia (originais ficam no dia anterior para consulta). */
 function rollAnchorStorageKey(userId: string, agenda: 'work' | 'personal'): string {
-  return `tododay.rollAnchor.v2.${userId}.${agenda}`
+  return `tododay.rollAnchor.v3.${userId}.${agenda}`
 }
 
 /** Quantos dias para trás tentar encadear na primeira sessão (sem âncora gravada). */
@@ -78,9 +83,20 @@ export async function countTodayPendingInCloud(
   return countActivePendingInTaskList(list)
 }
 
+function hasRollCopyOnDay(
+  toList: Task[],
+  sourceTaskId: string,
+  sourceCalendarDayKey: string,
+): boolean {
+  return toList.some(
+    (t) => t.rolledFromId === sourceTaskId && t.rolledFromDayKey === sourceCalendarDayKey,
+  )
+}
+
 /**
- * Move pendentes do dia `fromDayKey` para o dia seguinte na nuvem (ordem: primeiro as roladas, depois o que já existia).
- * Idempotente: se a tarefa já existir no destino, remove-se só da origem.
+ * Copia pendentes do dia `fromDayKey` para o dia seguinte (no topo do destino).
+ * O dia de origem não é alterado — as vermelhas ficam para consulta.
+ * Idempotente: não duplica se já existir cópia com o mesmo par (dia de origem + id da tarefa).
  */
 async function rollOneDayPairResult(
   sb: SupabaseClient,
@@ -89,10 +105,9 @@ async function rollOneDayPairResult(
   fromDayKey: string,
   toDayKey: string,
 ): Promise<{ error: string | null; mutated: boolean }> {
-  const fromStorage = toStorageDateKey(agenda, fromDayKey)
   const toStorage = toStorageDateKey(agenda, toDayKey)
 
-  const fromRaw = await loadDayTasksFromCloud(sb, userId, fromStorage)
+  const fromRaw = await loadDayTasksFromCloud(sb, userId, toStorageDateKey(agenda, fromDayKey))
   const fromList = fromRaw ?? []
 
   const pending: Task[] = []
@@ -105,24 +120,26 @@ async function rollOneDayPairResult(
   const toRaw = await loadDayTasksFromCloud(sb, userId, toStorage)
   const toList = toRaw && toRaw.length > 0 ? [...toRaw] : emptyDayTaskList()
 
-  const toIds = new Set(toList.map((t) => t.id))
   const toAdd: Task[] = []
   for (const p of pending) {
-    if (toIds.has(p.id)) continue
-    toAdd.push(p)
-    toIds.add(p.id)
+    if (hasRollCopyOnDay(toList, p.id, fromDayKey)) continue
+    if (hasRollCopyOnDay(toAdd, p.id, fromDayKey)) continue
+    toAdd.push({
+      id: crypto.randomUUID(),
+      text: p.text,
+      completed: false,
+      ignored: false,
+      rolledFromId: p.id,
+      rolledFromDayKey: fromDayKey,
+    })
   }
 
-  const pendingIds = new Set(pending.map((p) => p.id))
-  const newFrom = fromList.filter((t) => !pendingIds.has(t.id))
-  const normalizedFrom = newFrom.length > 0 ? newFrom : emptyDayTaskList()
+  if (toAdd.length === 0) return { error: null, mutated: false }
+
   const newTo = [...toAdd, ...toList]
 
   const errTo = await saveDayTasksToCloud(sb, userId, toStorage, newTo)
   if (errTo) return { error: errTo, mutated: false }
-
-  const errFrom = await saveDayTasksToCloud(sb, userId, fromStorage, normalizedFrom)
-  if (errFrom) return { error: errFrom, mutated: false }
 
   return { error: null, mutated: true }
 }
