@@ -49,9 +49,13 @@ function addCalendarDay(dayKey: string, delta: number): string {
   return `${yy}-${mm}-${dd}`
 }
 
+/** v2: corrige primeira abertura que saltava ontem → hoje; âncora null passa a fazer catch-up. */
 function rollAnchorStorageKey(userId: string, agenda: 'work' | 'personal'): string {
-  return `tododay.rollAnchor.v1.${userId}.${agenda}`
+  return `tododay.rollAnchor.v2.${userId}.${agenda}`
 }
+
+/** Quantos dias para trás tentar encadear na primeira sessão (sem âncora gravada). */
+const ROLL_ANCHOR_FALLBACK_DAYS = 120
 
 function emptyDayTaskList(): Task[] {
   return [{ id: crypto.randomUUID(), text: '', completed: false, ignored: false }]
@@ -78,13 +82,13 @@ export async function countTodayPendingInCloud(
  * Move pendentes do dia `fromDayKey` para o dia seguinte na nuvem (ordem: primeiro as roladas, depois o que já existia).
  * Idempotente: se a tarefa já existir no destino, remove-se só da origem.
  */
-async function rollOneDayPair(
+async function rollOneDayPairResult(
   sb: SupabaseClient,
   userId: string,
   agenda: 'work' | 'personal',
   fromDayKey: string,
   toDayKey: string,
-): Promise<string | null> {
+): Promise<{ error: string | null; mutated: boolean }> {
   const fromStorage = toStorageDateKey(agenda, fromDayKey)
   const toStorage = toStorageDateKey(agenda, toDayKey)
 
@@ -96,10 +100,10 @@ async function rollOneDayPair(
     if (!t.ignored && !t.completed && t.text.trim().length > 0) pending.push(t)
   }
 
-  if (pending.length === 0) return null
+  if (pending.length === 0) return { error: null, mutated: false }
 
   const toRaw = await loadDayTasksFromCloud(sb, userId, toStorage)
-  let toList = toRaw && toRaw.length > 0 ? [...toRaw] : emptyDayTaskList()
+  const toList = toRaw && toRaw.length > 0 ? [...toRaw] : emptyDayTaskList()
 
   const toIds = new Set(toList.map((t) => t.id))
   const toAdd: Task[] = []
@@ -115,17 +119,17 @@ async function rollOneDayPair(
   const newTo = [...toAdd, ...toList]
 
   const errTo = await saveDayTasksToCloud(sb, userId, toStorage, newTo)
-  if (errTo) return errTo
+  if (errTo) return { error: errTo, mutated: false }
 
   const errFrom = await saveDayTasksToCloud(sb, userId, fromStorage, normalizedFrom)
-  if (errFrom) return errFrom
+  if (errFrom) return { error: errFrom, mutated: false }
 
-  return null
+  return { error: null, mutated: true }
 }
 
 /**
- * Encadeia rolls até a data de hoje: pendentes de `anchor` → `anchor+1` → … → `today`.
- * `anchor` em localStorage: primeira vez grava-se `today` sem roll retroativo.
+ * Encadeia rolls até hoje. Sem âncora: começa até 120 dias atrás (primeira sessão).
+ * Se a âncora estiver já em `today` (bug antigo), ainda corre ontem → hoje (idempotente).
  */
 export async function rollAgendaThroughToday(
   sb: SupabaseClient,
@@ -134,25 +138,45 @@ export async function rollAgendaThroughToday(
   todayDayKey: string,
 ): Promise<boolean> {
   const lsKey = rollAnchorStorageKey(userId, agenda)
+  const yesterday = addCalendarDay(todayDayKey, -1)
+  let changed = false
+
   let cursor = localStorage.getItem(lsKey)
   if (!cursor) {
-    localStorage.setItem(lsKey, todayDayKey)
-    return false
+    cursor = addCalendarDay(todayDayKey, -ROLL_ANCHOR_FALLBACK_DAYS)
   }
-  if (cursor >= todayDayKey) return false
 
-  let changed = false
+  if (cursor >= todayDayKey) {
+    const r = await rollOneDayPairResult(sb, userId, agenda, yesterday, todayDayKey)
+    if (r.error) {
+      console.error(r.error)
+      return false
+    }
+    if (r.mutated) changed = true
+    localStorage.setItem(lsKey, todayDayKey)
+    return changed
+  }
+
   while (cursor < todayDayKey) {
     const next = addCalendarDay(cursor, 1)
-    const err = await rollOneDayPair(sb, userId, agenda, cursor, next)
-    if (err) {
-      console.error(err)
+    const r = await rollOneDayPairResult(sb, userId, agenda, cursor, next)
+    if (r.error) {
+      console.error(r.error)
       break
     }
-    changed = true
+    if (r.mutated) changed = true
     cursor = next
     localStorage.setItem(lsKey, cursor)
   }
+
+  const catchUp = await rollOneDayPairResult(sb, userId, agenda, yesterday, todayDayKey)
+  if (catchUp.error) console.error(catchUp.error)
+  else if (catchUp.mutated) changed = true
+
+  if (cursor >= todayDayKey) {
+    localStorage.setItem(lsKey, todayDayKey)
+  }
+
   return changed
 }
 
