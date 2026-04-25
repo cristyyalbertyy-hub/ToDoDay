@@ -108,6 +108,30 @@
   cursor: wait;
 }
 
+.auth__forgot {
+  margin-top: 0.2rem;
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ag-accent);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.auth__forgot:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.auth__forgot:hover:not(:disabled) {
+  color: var(--ag-accent-deep);
+}
+
 .auth__toggle {
   margin-top: 1rem;
   width: 100%;

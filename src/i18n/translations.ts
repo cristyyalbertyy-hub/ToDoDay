@@ -55,6 +55,9 @@ export type Messages = {
   authBusy: string
   authToggleToRegister: string
   authToggleToLogin: string
+  authForgotPassword: string
+  authResetSent: string
+  authResetEmailRequired: string
   authPasswordMismatch: string
   authPasswordMin: string
   authSignupSuccess: string
@@ -118,6 +121,9 @@ export const translations: Record<Lang, Messages> = {
     authBusy: 'A aguardar…',
     authToggleToRegister: 'Não tens conta? Registar',
     authToggleToLogin: 'Já tens conta? Entrar',
+    authForgotPassword: 'Esqueci-me da palavra-passe',
+    authResetSent: 'Se este email existir, enviámos um link para redefinir a palavra-passe.',
+    authResetEmailRequired: 'Indica o teu email para receberes o link de recuperação.',
     authPasswordMismatch: 'As palavras-passe não coincidem.',
     authPasswordMin: 'A palavra-passe deve ter pelo menos 6 caracteres.',
     authSignupSuccess:
@@ -180,6 +186,9 @@ export const translations: Record<Lang, Messages> = {
     authBusy: 'Please wait…',
     authToggleToRegister: 'No account? Register',
     authToggleToLogin: 'Already have an account? Sign in',
+    authForgotPassword: 'Forgot password?',
+    authResetSent: 'If that email exists, we sent a link to reset your password.',
+    authResetEmailRequired: 'Enter your email to receive a recovery link.',
     authPasswordMismatch: 'Passwords do not match.',
     authPasswordMin: 'Password must be at least 6 characters.',
     authSignupSuccess:
@@ -242,6 +251,9 @@ export const translations: Record<Lang, Messages> = {
     authBusy: 'Veuillez patienter…',
     authToggleToRegister: 'Pas de compte ? Inscription',
     authToggleToLogin: 'Déjà un compte ? Connexion',
+    authForgotPassword: 'Mot de passe oublié ?',
+    authResetSent: 'Si cet e-mail existe, nous avons envoyé un lien de réinitialisation.',
+    authResetEmailRequired: 'Saisissez votre e-mail pour recevoir un lien de récupération.',
     authPasswordMismatch: 'Les mots de passe ne correspondent pas.',
     authPasswordMin: 'Le mot de passe doit contenir au moins 6 caractères.',
     authSignupSuccess:

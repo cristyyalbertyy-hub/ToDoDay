@@ -8,6 +8,7 @@ type AuthContextValue = {
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signUp: (email: string, password: string) => Promise<{ error: string | null }>
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -54,6 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? error.message : null }
   }, [])
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    const sb = getSupabase()
+    if (!sb) return { error: 'Supabase não está configurado.' }
+    const { error } = await sb.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin,
+    })
+    return { error: error ? error.message : null }
+  }, [])
+
   const signOut = useCallback(async () => {
     const sb = getSupabase()
     if (!sb) return
@@ -67,9 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signIn,
       signUp,
+      requestPasswordReset,
       signOut,
     }),
-    [session, loading, signIn, signUp, signOut],
+    [session, loading, signIn, signUp, requestPasswordReset, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

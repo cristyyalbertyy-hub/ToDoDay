@@ -6,7 +6,7 @@ import { LanguageSwitcher } from '../i18n/LanguageSwitcher'
 import './AuthScreen.css'
 
 export function AuthScreen() {
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, requestPasswordReset } = useAuth()
   const { t } = useI18n()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
@@ -36,6 +36,22 @@ export function AuthScreen() {
         if (error) setMessage(error)
         else setMessage(t.authSignupSuccess)
       }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    setMessage(null)
+    if (!email.trim()) {
+      setMessage(t.authResetEmailRequired)
+      return
+    }
+    setBusy(true)
+    try {
+      const { error } = await requestPasswordReset(email)
+      if (error) setMessage(error)
+      else setMessage(t.authResetSent)
     } finally {
       setBusy(false)
     }
@@ -96,6 +112,11 @@ export function AuthScreen() {
           <button type="submit" className="auth__submit" disabled={busy}>
             {busy ? t.authBusy : mode === 'login' ? t.authSubmitLogin : t.authSubmitRegister}
           </button>
+          {mode === 'login' && (
+            <button type="button" className="auth__forgot" onClick={() => void handleForgotPassword()} disabled={busy}>
+              {t.authForgotPassword}
+            </button>
+          )}
         </form>
 
         <button
