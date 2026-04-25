@@ -59,9 +59,6 @@ function rollAnchorStorageKey(userId: string, agenda: 'work' | 'personal'): stri
   return `tododay.rollAnchor.v3.${userId}.${agenda}`
 }
 
-/** Quantos dias para trás tentar encadear na primeira sessão (sem âncora gravada). */
-const ROLL_ANCHOR_FALLBACK_DAYS = 120
-
 function emptyDayTaskList(): Task[] {
   return [{ id: crypto.randomUUID(), text: '', completed: false, ignored: false }]
 }
@@ -145,8 +142,8 @@ async function rollOneDayPairResult(
 }
 
 /**
- * Encadeia rolls até hoje. Sem âncora: começa até 120 dias atrás (primeira sessão).
- * Se a âncora estiver já em `today` (bug antigo), ainda corre ontem → hoje (idempotente).
+ * Faz apenas o roll de ontem -> hoje.
+ * Mantém idempotência via `rollOneDayPairResult` (não duplica cópias já existentes).
  */
 export async function rollAgendaThroughToday(
   sb: SupabaseClient,
@@ -156,45 +153,13 @@ export async function rollAgendaThroughToday(
 ): Promise<boolean> {
   const lsKey = rollAnchorStorageKey(userId, agenda)
   const yesterday = addCalendarDay(todayDayKey, -1)
-  let changed = false
-
-  let cursor = localStorage.getItem(lsKey)
-  if (!cursor) {
-    cursor = addCalendarDay(todayDayKey, -ROLL_ANCHOR_FALLBACK_DAYS)
+  const r = await rollOneDayPairResult(sb, userId, agenda, yesterday, todayDayKey)
+  if (r.error) {
+    console.error(r.error)
+    return false
   }
-
-  if (cursor >= todayDayKey) {
-    const r = await rollOneDayPairResult(sb, userId, agenda, yesterday, todayDayKey)
-    if (r.error) {
-      console.error(r.error)
-      return false
-    }
-    if (r.mutated) changed = true
-    localStorage.setItem(lsKey, todayDayKey)
-    return changed
-  }
-
-  while (cursor < todayDayKey) {
-    const next = addCalendarDay(cursor, 1)
-    const r = await rollOneDayPairResult(sb, userId, agenda, cursor, next)
-    if (r.error) {
-      console.error(r.error)
-      break
-    }
-    if (r.mutated) changed = true
-    cursor = next
-    localStorage.setItem(lsKey, cursor)
-  }
-
-  const catchUp = await rollOneDayPairResult(sb, userId, agenda, yesterday, todayDayKey)
-  if (catchUp.error) console.error(catchUp.error)
-  else if (catchUp.mutated) changed = true
-
-  if (cursor >= todayDayKey) {
-    localStorage.setItem(lsKey, todayDayKey)
-  }
-
-  return changed
+  localStorage.setItem(lsKey, todayDayKey)
+  return r.mutated
 }
 
 export async function rollAllAgendasThroughToday(

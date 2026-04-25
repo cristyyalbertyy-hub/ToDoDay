@@ -517,11 +517,7 @@ function AgendaView() {
   }
 
   const updateTask = (id: string, patch: Partial<Task>) => {
-    if (isPastDay) {
-      const keys = Object.keys(patch) as (keyof Task)[]
-      const onlyStatus = keys.length > 0 && keys.every((k) => k === 'completed' || k === 'ignored')
-      if (!onlyStatus) return
-    }
+    if (isPastDay) return
     setTasksForDay((list) =>
       list.map((t) => (t.id === id ? { ...t, ...patch } : t)),
     )
@@ -731,6 +727,7 @@ function AgendaView() {
                             type="button"
                             className="agenda__task-ignore"
                             aria-label={task.ignored ? t.ariaRestoreTask : t.ariaIgnoreTask}
+                            disabled={isPastDay}
                             onClick={() =>
                               updateTask(task.id, task.ignored ? { ignored: false } : { ignored: true, completed: false })
                             }
@@ -742,7 +739,7 @@ function AgendaView() {
                           type="button"
                           role="switch"
                           aria-checked={task.completed}
-                          disabled={Boolean(task.ignored)}
+                          disabled={Boolean(task.ignored) || isPastDay}
                           aria-label={task.completed ? t.ariaMarkTodo : t.ariaMarkDone}
                           className={`agenda__switch ${task.completed ? 'agenda__switch--done' : ''}`}
                           onClick={() => updateTask(task.id, { completed: !task.completed })}
