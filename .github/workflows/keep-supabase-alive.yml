@@ -1,0 +1,33 @@
+name: Keep Supabase alive
+
+# Evita pausa do projeto Free (inatividade > 7 dias): pedido leve à API 2x/semana.
+on:
+  schedule:
+    - cron: '0 8 * * 0,3'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Faltam secrets: SUPABASE_URL e SUPABASE_ANON_KEY"
+            exit 1
+          fi
+
+          status=$(curl -s -o /tmp/supabase-ping-body.txt -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/day_tasks?select=id&limit=1")
+
+          echo "HTTP status: $status"
+          cat /tmp/supabase-ping-body.txt
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 500 ]; then
+            exit 1
+          fi

@@ -29,15 +29,25 @@ ToDoDay — Supabase (login email + tarefas na nuvem)
      (ex.: http://localhost:5173 e o URL da Vercel). Sem isto, o link do
      email de "Esqueci-me da palavra-passe" não abre a app corretamente.
 
-5) Correr a app
+5) Evitar pausa do projeto Free (heartbeat automático)
+   - O repositório inclui .github/workflows/keep-supabase-alive.yml
+   - Faz um pedido leve à API 2x por semana (domingo e quarta, 08:00 UTC)
+   - No GitHub do projeto: Settings -> Secrets and variables -> Actions
+     -> New repository secret (criar estes 2):
+       SUPABASE_URL        (igual ao VITE_SUPABASE_URL do .env)
+       SUPABASE_ANON_KEY   (igual ao VITE_SUPABASE_ANON_KEY do .env)
+   - Depois do push, em Actions podes correr manualmente "Keep Supabase alive"
+     (botão Run workflow) para testar.
+
+6) Correr a app
    npm install
    npm run dev
 
-6) Contas
+7) Contas
    - Cada pessoa (filhos, amiga) usa "Registar" com o email dela e uma palavra-passe.
    - Cada conta vê só as suas tarefas (Row Level Security na tabela day_tasks).
 
-7) Publicar na Internet (Vercel)
+8) Publicar na Internet (Vercel)
    - O repositório inclui vercel.json com um rewrite para index.html (útil se
      mais tarde usares rotas no URL no browser).
    - Coloca o código no GitHub (ou GitLab/Bitbucket), entra em vercel.com,
