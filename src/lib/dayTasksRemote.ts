@@ -59,6 +59,9 @@ function rollAnchorStorageKey(userId: string, agenda: 'work' | 'personal'): stri
   return `tododay.rollAnchor.v3.${userId}.${agenda}`
 }
 
+/** Limite de recuperação automática quando a app ficou sem abrir. */
+const ROLL_ANCHOR_FALLBACK_DAYS = 120
+
 function emptyDayTaskList(): Task[] {
   return [{ id: crypto.randomUUID(), text: '', completed: false, ignored: false }]
 }
@@ -142,8 +145,8 @@ async function rollOneDayPairResult(
 }
 
 /**
- * Faz apenas o roll de ontem -> hoje.
- * Mantém idempotência via `rollOneDayPairResult` (não duplica cópias já existentes).
+ * Encadeia rolls até hoje quando há atraso de vários dias.
+ * No uso diário, continua a garantir ontem -> hoje (idempotente).
  */
 export async function rollAgendaThroughToday(
   sb: SupabaseClient,
@@ -153,13 +156,35 @@ export async function rollAgendaThroughToday(
 ): Promise<boolean> {
   const lsKey = rollAnchorStorageKey(userId, agenda)
   const yesterday = addCalendarDay(todayDayKey, -1)
+  let changed = false
+
+  let cursor = localStorage.getItem(lsKey)
+  if (!cursor) {
+    cursor = addCalendarDay(todayDayKey, -ROLL_ANCHOR_FALLBACK_DAYS)
+  }
+
+  if (cursor < yesterday) {
+    while (cursor < yesterday) {
+      const next = addCalendarDay(cursor, 1)
+      const r = await rollOneDayPairResult(sb, userId, agenda, cursor, next)
+      if (r.error) {
+        console.error(r.error)
+        break
+      }
+      if (r.mutated) changed = true
+      cursor = next
+      localStorage.setItem(lsKey, cursor)
+    }
+  }
+
   const r = await rollOneDayPairResult(sb, userId, agenda, yesterday, todayDayKey)
   if (r.error) {
     console.error(r.error)
-    return false
+    return changed
   }
+  if (r.mutated) changed = true
   localStorage.setItem(lsKey, todayDayKey)
-  return r.mutated
+  return changed
 }
 
 export async function rollAllAgendasThroughToday(
