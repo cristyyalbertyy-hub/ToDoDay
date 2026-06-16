@@ -58,6 +58,10 @@ export type Messages = {
   authForgotPassword: string
   authResetSent: string
   authResetEmailRequired: string
+  authResetSubtitle: string
+  authNewPassword: string
+  authResetSubmit: string
+  authResetSuccess: string
   authPasswordMismatch: string
   authPasswordMin: string
   authSignupSuccess: string
@@ -122,8 +126,13 @@ export const translations: Record<Lang, Messages> = {
     authToggleToRegister: 'Não tens conta? Registar',
     authToggleToLogin: 'Já tens conta? Entrar',
     authForgotPassword: 'Esqueci-me da palavra-passe',
-    authResetSent: 'Se este email existir, enviámos um link para redefinir a palavra-passe.',
+    authResetSent:
+      'Se este email existir, enviámos um link para redefinir a palavra-passe. Verifica também o spam e clica no link para definir a nova password.',
     authResetEmailRequired: 'Indica o teu email para receberes o link de recuperação.',
+    authResetSubtitle: 'Define uma nova palavra-passe para a tua conta.',
+    authNewPassword: 'Nova palavra-passe',
+    authResetSubmit: 'Guardar nova palavra-passe',
+    authResetSuccess: 'Palavra-passe atualizada. Já podes usar a app.',
     authPasswordMismatch: 'As palavras-passe não coincidem.',
     authPasswordMin: 'A palavra-passe deve ter pelo menos 6 caracteres.',
     authSignupSuccess:
@@ -187,8 +196,13 @@ export const translations: Record<Lang, Messages> = {
     authToggleToRegister: 'No account? Register',
     authToggleToLogin: 'Already have an account? Sign in',
     authForgotPassword: 'Forgot password?',
-    authResetSent: 'If that email exists, we sent a link to reset your password.',
+    authResetSent:
+      'If that email exists, we sent a reset link. Check spam too, then open the link to set your new password.',
     authResetEmailRequired: 'Enter your email to receive a recovery link.',
+    authResetSubtitle: 'Set a new password for your account.',
+    authNewPassword: 'New password',
+    authResetSubmit: 'Save new password',
+    authResetSuccess: 'Password updated. You can use the app now.',
     authPasswordMismatch: 'Passwords do not match.',
     authPasswordMin: 'Password must be at least 6 characters.',
     authSignupSuccess:
@@ -252,8 +266,13 @@ export const translations: Record<Lang, Messages> = {
     authToggleToRegister: 'Pas de compte ? Inscription',
     authToggleToLogin: 'Déjà un compte ? Connexion',
     authForgotPassword: 'Mot de passe oublié ?',
-    authResetSent: 'Si cet e-mail existe, nous avons envoyé un lien de réinitialisation.',
+    authResetSent:
+      'Si cet e-mail existe, nous avons envoyé un lien. Vérifiez aussi les spams, puis ouvrez le lien pour définir le nouveau mot de passe.',
     authResetEmailRequired: 'Saisissez votre e-mail pour recevoir un lien de récupération.',
+    authResetSubtitle: 'Définissez un nouveau mot de passe pour votre compte.',
+    authNewPassword: 'Nouveau mot de passe',
+    authResetSubmit: 'Enregistrer le nouveau mot de passe',
+    authResetSuccess: 'Mot de passe mis à jour. Vous pouvez utiliser l’application.',
     authPasswordMismatch: 'Les mots de passe ne correspondent pas.',
     authPasswordMin: 'Le mot de passe doit contenir au moins 6 caractères.',
     authSignupSuccess:

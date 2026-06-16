@@ -24,6 +24,10 @@ ToDoDay — Supabase (login email + tarefas na nuvem)
    - Para testes com a família, em Authentication → Providers → Email podes
      desativar "Confirm email" (evita ter de clicar no link antes de entrar).
      Em produção podes voltar a ativar confirmação por email.
+   - Recuperação de palavra-passe: em Authentication → URL Configuration,
+     o "Site URL" e "Redirect URLs" têm de incluir o URL onde a app está
+     (ex.: http://localhost:5173 e o URL da Vercel). Sem isto, o link do
+     email de "Esqueci-me da palavra-passe" não abre a app corretamente.
 
 5) Correr a app
    npm install

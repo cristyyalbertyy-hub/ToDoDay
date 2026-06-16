@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AuthScreen } from './components/AuthScreen'
+import { ResetPasswordScreen } from './components/ResetPasswordScreen'
 import { useAuth } from './contexts/AuthContext'
 import { useI18n } from './i18n/I18nContext'
 import { LanguageSwitcher } from './i18n/LanguageSwitcher'
@@ -808,7 +809,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGc...`}</pre>
 }
 
 function AppWithSupabase() {
-  const { user, loading } = useAuth()
+  const { user, loading, passwordRecovery } = useAuth()
   const { t } = useI18n()
   if (loading) {
     return (
@@ -816,6 +817,13 @@ function AppWithSupabase() {
         <div className="agenda agenda--loading-shell">
           <p className="agenda__loading">{t.loadingSession}</p>
         </div>
+      </div>
+    )
+  }
+  if (passwordRecovery) {
+    return (
+      <div className="sakura-app">
+        <ResetPasswordScreen />
       </div>
     )
   }

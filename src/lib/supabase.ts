@@ -9,6 +9,13 @@ let client: SupabaseClient | null = null
 
 export function getSupabase(): SupabaseClient | null {
   if (!supabaseConfigured || !url || !anonKey) return null
-  if (!client) client = createClient(url, anonKey)
+  if (!client) {
+    client = createClient(url, anonKey, {
+      auth: {
+        detectSessionInUrl: true,
+        persistSession: true,
+      },
+    })
+  }
   return client
 }
