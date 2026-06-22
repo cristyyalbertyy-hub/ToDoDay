@@ -31,6 +31,7 @@ function parseTasksJson(raw: unknown): Task[] | null {
         ...(typeof t.rolledFromDayKey === 'string' && t.rolledFromDayKey
           ? { rolledFromDayKey: t.rolledFromDayKey }
           : {}),
+        ...(typeof t.detail === 'string' && t.detail ? { detail: t.detail } : {}),
       })
     }
   }

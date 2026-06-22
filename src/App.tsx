@@ -240,6 +240,90 @@ function CalendarPickerBody({
   )
 }
 
+type TaskDetailPanelProps = {
+  task: Task
+  isPastDay: boolean
+  onClose: () => void
+  onUpdate: (patch: Partial<Task>) => void
+  titleLabel: string
+  detailLabel: string
+  detailPlaceholder: string
+  taskPlaceholder: string
+  backLabel: string
+  ariaTaskText: string
+  ariaTaskDetail: string
+}
+
+function TaskDetailPanel({
+  task,
+  isPastDay,
+  onClose,
+  onUpdate,
+  titleLabel,
+  detailLabel,
+  detailPlaceholder,
+  taskPlaceholder,
+  backLabel,
+  ariaTaskText,
+  ariaTaskDetail,
+}: TaskDetailPanelProps) {
+  return (
+    <div
+      className="agenda__calendar-screen"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="agenda__calendar-screen-inner agenda__detail-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="agenda-task-detail-title"
+      >
+        <header className="agenda__screen-head">
+          <button type="button" className="agenda__screen-back" onClick={onClose}>
+            {backLabel}
+          </button>
+          <h2 id="agenda-task-detail-title" className="agenda__screen-title">
+            {titleLabel}
+          </h2>
+          <span className="agenda__screen-spacer" aria-hidden="true" />
+        </header>
+        <div className="agenda__detail-fields">
+          <label className="agenda__detail-field">
+            <span className="agenda__detail-label">{ariaTaskText}</span>
+            <input
+              type="text"
+              className={`agenda__input agenda__detail-input${isPastDay ? ' agenda__input--locked' : ''}`}
+              value={task.text}
+              readOnly={isPastDay}
+              onChange={(e) => onUpdate({ text: e.target.value })}
+              placeholder={taskPlaceholder}
+              aria-label={ariaTaskText}
+            />
+          </label>
+          <label className="agenda__detail-field">
+            <span className="agenda__detail-label">{detailLabel}</span>
+            <textarea
+              className={`agenda__detail-textarea${isPastDay ? ' agenda__detail-textarea--locked' : ''}`}
+              value={task.detail ?? ''}
+              readOnly={isPastDay}
+              onChange={(e) => {
+                const value = e.target.value
+                onUpdate(value.trim() ? { detail: value } : { detail: undefined })
+              }}
+              placeholder={detailPlaceholder}
+              aria-label={ariaTaskDetail}
+              rows={6}
+            />
+          </label>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AgendaView() {
   const { user, signOut } = useAuth()
   const { t } = useI18n()
@@ -256,6 +340,7 @@ function AgendaView() {
   const [workTodayPendingCount, setWorkTodayPendingCount] = useState(0)
   const [personalTodayPendingCount, setPersonalTodayPendingCount] = useState(0)
   const [expandedTodayTasks, setExpandedTodayTasks] = useState(false)
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null)
   const [dayClock, setDayClock] = useState(0)
 
   const draftsRef = useRef(drafts)
@@ -321,20 +406,23 @@ function AgendaView() {
   }, [pickerOpen, dateKey])
 
   useEffect(() => {
-    if (!pickerOpen) return
+    if (!pickerOpen && !detailTaskId) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPickerOpen(false)
+      if (e.key === 'Escape') {
+        if (detailTaskId) setDetailTaskId(null)
+        else setPickerOpen(false)
+      }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [pickerOpen])
+  }, [pickerOpen, detailTaskId])
 
   useEffect(() => {
-    document.body.style.overflow = pickerOpen ? 'hidden' : ''
+    document.body.style.overflow = pickerOpen || detailTaskId ? 'hidden' : ''
     return () => {
       document.body.style.overflow = ''
     }
-  }, [pickerOpen])
+  }, [pickerOpen, detailTaskId])
 
   useEffect(() => {
     if (dateKey < dateKeyFromDate(new Date())) setSaveHint(null)
@@ -399,6 +487,16 @@ function AgendaView() {
   useEffect(() => {
     if (dateKey !== todayKey) setExpandedTodayTasks(false)
   }, [dateKey, todayKey])
+
+  useEffect(() => {
+    setDetailTaskId(null)
+  }, [dateKey, agendaKind])
+
+  const detailTask = detailTaskId && tasks ? tasks.find((task) => task.id === detailTaskId) : undefined
+
+  useEffect(() => {
+    if (detailTaskId && !detailTask) setDetailTaskId(null)
+  }, [detailTaskId, detailTask])
 
   const autoSavePayload = useMemo(() => {
     if (!user || !sb) return null
@@ -716,13 +814,30 @@ function AgendaView() {
                         />
                         <input
                           type="text"
-                          className={`agenda__input${isPastDay ? ' agenda__input--locked' : ''}`}
+                          className={`agenda__input${isPastDay ? ' agenda__input--locked' : ''}${task.detail ? ' agenda__input--has-detail' : ''}`}
                           value={task.text}
                           readOnly={isPastDay}
                           onChange={(e) => updateTask(task.id, { text: e.target.value })}
                           placeholder={t.taskPlaceholder}
                           aria-label={t.ariaTaskText}
                         />
+                        {(task.text.trim().length > 0 || task.detail) && (
+                          <button
+                            type="button"
+                            className={`agenda__task-detail-btn${task.detail ? ' agenda__task-detail-btn--active' : ''}`}
+                            aria-label={t.ariaOpenTaskDetail}
+                            onClick={() => setDetailTaskId(task.id)}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                              <path
+                                d="M8 6h12M8 12h12M8 18h8M4 6h.01M4 12h.01M4 18h.01"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </button>
+                        )}
                         {(task.ignored || task.text.trim().length > 0) && (
                           <button
                             type="button"
@@ -774,6 +889,22 @@ function AgendaView() {
             <footer className="agenda__footer">
               {saveHint && <span className="agenda__saved">{saveHint}</span>}
             </footer>
+
+            {detailTask && (
+              <TaskDetailPanel
+                task={detailTask}
+                isPastDay={isPastDay}
+                onClose={() => setDetailTaskId(null)}
+                onUpdate={(patch) => updateTask(detailTask.id, patch)}
+                titleLabel={t.taskDetailTitle}
+                detailLabel={t.taskDetailLabel}
+                detailPlaceholder={t.taskDetailPlaceholder}
+                taskPlaceholder={t.taskPlaceholder}
+                backLabel={t.screenBack}
+                ariaTaskText={t.ariaTaskText}
+                ariaTaskDetail={t.ariaTaskDetail}
+              />
+            )}
           </>
         )}
       </div>

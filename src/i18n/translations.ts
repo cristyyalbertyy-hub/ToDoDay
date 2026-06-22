@@ -32,6 +32,11 @@ export type Messages = {
   ariaMarkTodo: string
   ariaMarkDone: string
   ariaAddField: string
+  taskDetailTitle: string
+  taskDetailLabel: string
+  taskDetailPlaceholder: string
+  ariaOpenTaskDetail: string
+  ariaTaskDetail: string
   pastDayNote: string
   ariaBadgeWorkToday: string
   ariaBadgePersonalToday: string
@@ -100,6 +105,11 @@ export const translations: Record<Lang, Messages> = {
     ariaMarkTodo: 'Marcar como por fazer',
     ariaMarkDone: 'Marcar como concluída',
     ariaAddField: 'Adicionar campo',
+    taskDetailTitle: 'Detalhe da tarefa',
+    taskDetailLabel: 'Detalhe',
+    taskDetailPlaceholder: 'Notas, instruções ou contexto…',
+    ariaOpenTaskDetail: 'Abrir detalhe da tarefa',
+    ariaTaskDetail: 'Detalhe da tarefa',
     pastDayNote:
       'Este dia já passou — podes marcar como concluídas ou ignorar (×); o texto não é editável e as alterações guardam-se na nuvem.',
     ariaBadgeWorkToday: 'Trabalho — por fazer hoje: {{count}}',
@@ -170,6 +180,11 @@ export const translations: Record<Lang, Messages> = {
     ariaMarkTodo: 'Mark as to do',
     ariaMarkDone: 'Mark as done',
     ariaAddField: 'Add field',
+    taskDetailTitle: 'Task details',
+    taskDetailLabel: 'Details',
+    taskDetailPlaceholder: 'Notes, instructions, or context…',
+    ariaOpenTaskDetail: 'Open task details',
+    ariaTaskDetail: 'Task details',
     pastDayNote:
       'This day is in the past — you can mark tasks done or ignore them (×); text is not editable and changes sync to the cloud.',
     ariaBadgeWorkToday: 'Work — pending today: {{count}}',
@@ -240,6 +255,11 @@ export const translations: Record<Lang, Messages> = {
     ariaMarkTodo: 'Marquer comme à faire',
     ariaMarkDone: 'Marquer comme terminée',
     ariaAddField: 'Ajouter un champ',
+    taskDetailTitle: 'Détail de la tâche',
+    taskDetailLabel: 'Détail',
+    taskDetailPlaceholder: 'Notes, instructions ou contexte…',
+    ariaOpenTaskDetail: 'Ouvrir le détail de la tâche',
+    ariaTaskDetail: 'Détail de la tâche',
     pastDayNote:
       'Ce jour est passé — vous pouvez marquer les tâches comme terminées ou les ignorer (×) ; le texte n’est pas modifiable et les changements sont enregistrés dans le cloud.',
     ariaBadgeWorkToday: "Travail — à faire aujourd'hui : {{count}}",
