@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react'
 import type { ReactNode } from 'react'
 import { AuthScreen } from './components/AuthScreen'
 import { ResetPasswordScreen } from './components/ResetPasswordScreen'
@@ -245,6 +245,8 @@ type TaskDetailPanelProps = {
   isPastDay: boolean
   onClose: () => void
   onUpdate: (patch: Partial<Task>) => void
+  onPrev: (() => void) | null
+  onNext: (() => void) | null
   titleLabel: string
   detailLabel: string
   detailPlaceholder: string
@@ -254,11 +256,15 @@ type TaskDetailPanelProps = {
   ariaTaskDetail: string
 }
 
+const DETAIL_SWIPE_MIN_PX = 50
+
 function TaskDetailPanel({
   task,
   isPastDay,
   onClose,
   onUpdate,
+  onPrev,
+  onNext,
   titleLabel,
   detailLabel,
   detailPlaceholder,
@@ -267,13 +273,39 @@ function TaskDetailPanel({
   ariaTaskText,
   ariaTaskDetail,
 }: TaskDetailPanelProps) {
+  const swipeRef = useRef<{ startX: number; startY: number; active: boolean } | null>(null)
+
+  const handleTouchStart = (e: TouchEvent) => {
+    const touch = e.changedTouches[0] ?? e.touches[0]
+    if (!touch) return
+    swipeRef.current = { startX: touch.clientX, startY: touch.clientY, active: true }
+  }
+
+  const handleTouchEnd = (e: TouchEvent) => {
+    const start = swipeRef.current
+    swipeRef.current = null
+    if (!start?.active) return
+
+    const touch = e.changedTouches[0]
+    if (!touch) return
+
+    const dx = touch.clientX - start.startX
+    const dy = touch.clientY - start.startY
+    if (Math.abs(dx) < DETAIL_SWIPE_MIN_PX || Math.abs(dx) <= Math.abs(dy)) return
+
+    if (dx > 0) onNext?.()
+    else onPrev?.()
+  }
+
   return (
     <div
-      className="agenda__calendar-screen"
+      className="agenda__calendar-screen agenda__calendar-screen--detail"
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <div
         className="agenda__calendar-screen-inner agenda__detail-panel"
@@ -494,6 +526,18 @@ function AgendaView() {
 
   const detailTask = detailTaskId && tasks ? tasks.find((task) => task.id === detailTaskId) : undefined
 
+  const detailNavTasks = useMemo(
+    () => (tasks ?? []).filter((task) => task.text.trim().length > 0 || task.detail),
+    [tasks],
+  )
+  const detailTaskIndex = detailTask ? detailNavTasks.findIndex((task) => task.id === detailTask.id) : -1
+  const goToPrevDetailTask =
+    detailTaskIndex > 0 ? () => setDetailTaskId(detailNavTasks[detailTaskIndex - 1].id) : null
+  const goToNextDetailTask =
+    detailTaskIndex >= 0 && detailTaskIndex < detailNavTasks.length - 1
+      ? () => setDetailTaskId(detailNavTasks[detailTaskIndex + 1].id)
+      : null
+
   useEffect(() => {
     if (detailTaskId && !detailTask) setDetailTaskId(null)
   }, [detailTaskId, detailTask])
@@ -629,7 +673,7 @@ function AgendaView() {
 
   return (
     <div className="sakura-app">
-      <div className={`agenda agenda--${agendaKind}${pickerOpen ? ' agenda--calendar-open' : ''}`}>
+      <div className={`agenda agenda--${agendaKind}${pickerOpen || detailTaskId ? ' agenda--calendar-open' : ''}`}>
         {pickerOpen ? (
           <div
             className="agenda__calendar-screen"
@@ -896,6 +940,8 @@ function AgendaView() {
                 isPastDay={isPastDay}
                 onClose={() => setDetailTaskId(null)}
                 onUpdate={(patch) => updateTask(detailTask.id, patch)}
+                onPrev={goToPrevDetailTask}
+                onNext={goToNextDetailTask}
                 titleLabel={t.taskDetailTitle}
                 detailLabel={t.taskDetailLabel}
                 detailPlaceholder={t.taskDetailPlaceholder}
