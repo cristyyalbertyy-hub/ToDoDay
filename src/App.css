@@ -92,7 +92,8 @@
 }
 
 .agenda__screen-back,
-.agenda__screen-today {
+.agenda__screen-today,
+.agenda__screen-save {
   padding: 0.45rem 0.65rem;
   border-radius: 10px;
   border: 1px solid var(--ag-border);
@@ -106,8 +107,15 @@
   white-space: nowrap;
 }
 
+.agenda__screen-save {
+  border-color: rgba(212, 175, 55, 0.45);
+  background: var(--ag-accent-soft);
+  color: var(--ag-accent-deep);
+}
+
 .agenda__screen-back:hover,
-.agenda__screen-today:hover {
+.agenda__screen-today:hover,
+.agenda__screen-save:hover {
   border-color: var(--ag-accent);
   background: var(--ag-accent-soft);
   color: var(--ag-accent);
@@ -120,6 +128,22 @@
   color: var(--ag-heading);
   text-align: center;
   line-height: 1.25;
+}
+
+.agenda__screen-title-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.agenda__detail-counter {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ag-muted);
+  line-height: 1.2;
 }
 
 .agenda__screen-spacer {
@@ -184,6 +208,78 @@
   opacity: 0.85;
   cursor: default;
   resize: none;
+}
+
+.agenda__detail-carousel-viewport {
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.agenda__detail-carousel-track {
+  display: flex;
+  will-change: transform;
+}
+
+.agenda__detail-carousel-track--transition {
+  transition: transform 0.22s ease;
+}
+
+.agenda__detail-carousel-card {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+}
+
+.agenda__detail-carousel-empty {
+  min-height: 8rem;
+}
+
+.agenda__detail-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 8rem;
+  padding: 0.15rem 0.05rem;
+}
+
+.agenda__detail-num {
+  align-self: flex-start;
+  min-width: 2.1rem;
+  height: 2.1rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ag-accent-deep);
+  background: var(--ag-accent-soft);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+}
+
+.agenda__detail-preview-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ag-heading);
+  line-height: 1.35;
+}
+
+.agenda__detail-preview-body {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--ag-text);
+  white-space: pre-wrap;
+}
+
+.agenda__detail-preview-empty {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--ag-muted);
+  font-style: italic;
 }
 
 .agenda__header {
@@ -673,6 +769,27 @@
   gap: 0.5rem;
 }
 
+.agenda__task-num {
+  flex-shrink: 0;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ag-accent-deep);
+  background: var(--ag-accent-soft);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.agenda__task--ignored .agenda__task-num {
+  opacity: 0.65;
+}
+
 .agenda__task--ignored .agenda__input {
   color: var(--ag-muted);
   text-decoration: line-through;
@@ -772,6 +889,51 @@
   outline: none;
   border-color: var(--ag-accent);
   box-shadow: 0 0 0 3px var(--ag-accent-soft);
+}
+
+.agenda__task-label {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--ag-border);
+  background: var(--ag-input-bg);
+  color: var(--ag-heading);
+  font: inherit;
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.agenda__task-label:hover {
+  border-color: var(--ag-accent);
+  background: var(--ag-accent-soft);
+}
+
+.agenda__task-label--has-detail {
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
+.agenda__task-label--done .agenda__task-label-text {
+  color: var(--ag-muted);
+  text-decoration: line-through;
+}
+
+.agenda__task-label-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda__task--ignored .agenda__task-label {
+  color: var(--ag-muted);
+}
+
+.agenda__task--ignored .agenda__task-label-text {
+  text-decoration: line-through;
+  font-style: italic;
 }
 
 .agenda__switch {

@@ -33,6 +33,8 @@ export type Messages = {
   ariaMarkDone: string
   ariaAddField: string
   taskDetailTitle: string
+  taskDetailNewTitle: string
+  taskDetailCounter: string
   taskDetailLabel: string
   taskDetailPlaceholder: string
   ariaOpenTaskDetail: string
@@ -106,6 +108,8 @@ export const translations: Record<Lang, Messages> = {
     ariaMarkDone: 'Marcar como concluída',
     ariaAddField: 'Adicionar campo',
     taskDetailTitle: 'Detalhe da tarefa',
+    taskDetailNewTitle: 'Nova tarefa',
+    taskDetailCounter: '{{n}} de {{total}}',
     taskDetailLabel: 'Detalhe',
     taskDetailPlaceholder: 'Notas, instruções ou contexto…',
     ariaOpenTaskDetail: 'Abrir detalhe da tarefa',
@@ -181,6 +185,8 @@ export const translations: Record<Lang, Messages> = {
     ariaMarkDone: 'Mark as done',
     ariaAddField: 'Add field',
     taskDetailTitle: 'Task details',
+    taskDetailNewTitle: 'New task',
+    taskDetailCounter: '{{n}} of {{total}}',
     taskDetailLabel: 'Details',
     taskDetailPlaceholder: 'Notes, instructions, or context…',
     ariaOpenTaskDetail: 'Open task details',
@@ -256,6 +262,8 @@ export const translations: Record<Lang, Messages> = {
     ariaMarkDone: 'Marquer comme terminée',
     ariaAddField: 'Ajouter un champ',
     taskDetailTitle: 'Détail de la tâche',
+    taskDetailNewTitle: 'Nouvelle tâche',
+    taskDetailCounter: '{{n}} sur {{total}}',
     taskDetailLabel: 'Détail',
     taskDetailPlaceholder: 'Notes, instructions ou contexte…',
     ariaOpenTaskDetail: 'Ouvrir le détail de la tâche',
